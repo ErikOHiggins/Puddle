@@ -121,7 +121,7 @@ them and sets itself up the same way: nothing big is downloaded again.
   168K on two 16 GB cards (as it runs on echo), else the largest that fits, chosen by llama-server each time it loads.
 - **Images?** For Gemma 4 and the Nemotrons: whether the model should also read pictures. On strata-poly the image
   encoder runs on the GPU from 15.5 GB of VRAM, else on the CPU (Gemma 4's: a few seconds a picture; the Nemotrons'
-  has not been run on the CPU); Bolt's on llama-server is on the cards with the model (recommended: yes).
+  has not been run on the CPU); Bolt's on llama-server is on the cards with the model. For Bolt the default is yes.
 - **Several conversations in RAM?** The conversation cache keeps conversations a coding agent switches between in RAM,
   so they are not read again (up to 8 GB of RAM). Not asked for Bolt on llama-server: llama-server keeps earlier prompts
   in RAM itself (up to 8 GiB).

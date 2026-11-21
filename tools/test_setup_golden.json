@@ -410,7 +410,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "128GB-1x24GB nemotron-bolt recommended": {
@@ -444,7 +451,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "128GB-1x24GB nemotron-bolt-llama 24GB": {
@@ -978,7 +992,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "32GB-2x24GB nemotron-bolt recommended": {
@@ -1016,7 +1037,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "32GB-2x24GB nemotron-bolt-llama 24GB": {
@@ -1648,7 +1676,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "47GB-2x16GB nemotron-bolt recommended": {
@@ -1686,7 +1721,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "47GB-2x16GB nemotron-bolt-llama 24GB": {
@@ -2276,7 +2318,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "64GB-1x32GB nemotron-bolt recommended": {
@@ -2310,7 +2359,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "64GB-1x32GB nemotron-bolt-llama 24GB": {
@@ -2882,7 +2938,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "96GB-1x16GB nemotron-bolt recommended": {
@@ -2916,7 +2979,14 @@
     "top_k": 40,
     "top_p": 0.95
    },
-   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+   "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer",
+   "vision": {
+    "exe": "<T>/engine-poly/<strata-vision>",
+    "gpu": true,
+    "max_tokens": 0,
+    "mmproj": "<T>/models/nemotron-bolt-24GB/mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "model": "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"
+   }
   }
  },
  "96GB-1x16GB nemotron-bolt-llama 24GB": {

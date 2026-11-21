@@ -57,8 +57,8 @@ Setup then:
 4. writes `strata-nemotron-bolt-24gb.json` and `run-nemotron-bolt-24gb.sh` (`.bat`), and starts the model. Clients ask
    for it as `nemotron-3.5-bolt-24gb`.
 
-It asks whether the model should read pictures (`--vision gpu` says yes); without them the image encoder is not
-downloaded.
+It asks whether the model should read pictures, and the default is yes; `--vision no` leaves them out, and the image
+encoder is not downloaded.
 
 On llama-server instead, beside it:
 

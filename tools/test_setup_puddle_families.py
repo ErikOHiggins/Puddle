@@ -194,6 +194,20 @@ class Bolt(unittest.TestCase):
         self.assertEqual(setup.choices_from_config(next(self.t.glob("strata-nemotron-bolt-*.json")))["family"],
                          "nemotron-bolt")
 
+    def test_pictures_are_on_unless_asked_off(self):
+        code, out, cfg = self.two_16()                              # --yes: the question's default, yes for Bolt
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertEqual(Path(cfg["vision"]["mmproj"]).name, setup.FAMILIES["nemotron-bolt"]["mmproj"])
+        self.tearDown()
+        self.setUp()
+        code, out, cfg = self.two_16("--vision", "no")
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertNotIn("vision", cfg)
+        self.assertEqual(len(self.downloads), 1)                     # the model alone
+
+    def test_other_families_still_ask_no_first(self):
+        self.assertEqual([f for f, d in setup.FAMILIES.items() if d.get("vision_default_yes")], ["nemotron-bolt"])
+
     def test_one_card_says_part_runs_on_the_cpu(self):
         cards = [{"index": 0, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120",
                   "driver": "580.97"}]

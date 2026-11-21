@@ -266,7 +266,8 @@ FAMILIES = {
     # GiB), with the image encoder too.  vision_vram_gb: Super's measurement of the same encoder (nemotron_omni, the
     # same settings).  --no-draft: Bolt has no MTP block, and NemotronH no draft path yet.  Sampling: NVIDIA's recipe
     # as llama.cpp runs it (the card's "Recommended Sampling" temperature 1.0 and top_p 0.95, with llama.cpp's top_k
-    # 40 and min_p 0.05 that its command leaves on).
+    # 40 and min_p 0.05 that its command leaves on).  "vision_default_yes": the pictures question defaults to yes, as
+    # it did on llama-server (reading pictures is what Bolt is used for).
     "nemotron-bolt": {"title": "Nemotron 3.5 Bolt", "by": "NVIDIA", "engine": "poly",
                       "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
                       "about": "74B-A9B, reads pictures; a 22 GB file, ~17 GB of RAM beside a 16 GB card, every expert "
@@ -277,7 +278,7 @@ FAMILIES = {
                       "metal": False, "ran_on_gb": 16, "row_bytes": 8192,
                       "mmproj_hf": hf("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF"),
                       "mmproj": "mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf", "vision_gb": 1.7,
-                      "vision_vram_gb": 2.5, "vision_max_tokens": 0,
+                      "vision_vram_gb": 2.5, "vision_max_tokens": 0, "vision_default_yes": True,
                       "contexts": [8192, 32768, 65536, 131072, 262144],
                       "args": ["--no-draft"],
                       "license": "OpenMDW-1.1 (NVIDIA's): "
@@ -4049,7 +4050,9 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
                  if auto == "gpu" else
                  f"runs on the CPU on this card (a few seconds a picture; --vision gpu: ~{fam['vision_vram_gb']} "
                  "GB of VRAM)."))
-            vision = auto if ask("Do you want images?", ["y", "n"], "n", a.yes) == "y" else "none"
+            # a family whose pictures are its main use answers yes by default (Bolt: "vision_default_yes")
+            first = "y" if fam.get("vision_default_yes") else "n"
+            vision = auto if ask("Do you want images?", ["y", "n"], first, a.yes) == "y" else "none"
         ok("images: " + {"none": "off", "gpu": "on", "cpu": "on (encoder on the CPU)"}[vision])
     room = max(0.0, vram - (fam["vision_vram_gb"] if vision == "gpu" else 0))   # the VRAM left for the model
     beside = poly_beside_gb(d)
