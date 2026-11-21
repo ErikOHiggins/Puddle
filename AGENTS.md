@@ -40,6 +40,8 @@ offers the same steps as tools.
   The installed engine is not touched.
 - A change to strata-poly that should leave the models' answers as they were: `tools/engine_regress.py --old <the
   engine before it> strata-<model>.json ...` runs both engines greedy on each installed model and compares the ids.
+- strata-poly against llama.cpp on one GGUF: `tools/poly_parity.py --gguf <file>` (llama.cpp writes greedy answers,
+  strata-poly follows them, and each step's first choice and probabilities are compared).
 - Keep the docs' style: plain words, measured numbers with what they were measured on, no claims without a
   measurement.
 
