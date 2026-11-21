@@ -6,6 +6,10 @@ template), and each engine runs it in its one-shot mode with the config's argume
 (serve/server.py engine_args() and child_env(): the cards, the layer split, the libraries), plus
 --expert-swaps 0 (the expert cache stays as it was loaded, so a run does not depend on the timing of the copies),
 --temperature 0, --tokens and --max-new.  --expert-profile is left out, so no run writes the model's profile.
+The engines run with STRATA_FREEZE_EXPERTS=1 (--no-freeze leaves it out): with experts on the CPU, the split between
+the card's experts and the CPU's, and the way a window of guesses goes through the layers (whole or in halves, by the
+times measured so far), decide a layer's sums to the last bit, and the freeze holds both still for the run.  On
+echo Laguna-S's two runs of one engine parted from token 16 without it.
 
     .venv/bin/python tools/engine_regress.py --old /tmp/strata-poly-old strata-laguna-xs21-q4_k_m.json ...
 
@@ -71,11 +75,14 @@ def cache_of(stderr: str) -> str:
     return "?"
 
 
-def run_once(exe: str, cfg: dict, ids: list[int], max_new: int, timeout: float) -> tuple[list[int], str]:
+def run_once(exe: str, cfg: dict, ids: list[int], max_new: int, timeout: float,
+             freeze: bool = True) -> tuple[list[int], str]:
     import server   # serve/server.py: the engine's arguments and environment as the server gives them
     cmd = [exe] + regress_args(server.engine_args(cfg), ids, max_new)
-    r = subprocess.run(cmd, capture_output=True, text=True, env=server.child_env(cfg), timeout=timeout,
-                       cwd=cfg.get("cwd") or None)
+    env = server.child_env(cfg)
+    if freeze:
+        env["STRATA_FREEZE_EXPERTS"] = "1"
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout, cwd=cfg.get("cwd") or None)
     got = parse_ids(r.stdout)
     if r.returncode != 0 or not got:
         tail = "\n".join((r.stderr or "").strip().splitlines()[-12:])
@@ -92,6 +99,9 @@ def main(argv=None) -> int:
     ap.add_argument("--runs", type=int, default=2, help="runs of each engine (default 2)")
     ap.add_argument("--prompt", default=PROMPT)
     ap.add_argument("--timeout", type=float, default=600, help="seconds a run may take (default 600)")
+    ap.add_argument("--no-freeze", dest="freeze", action="store_false",
+                    help="run without STRATA_FREEZE_EXPERTS (the experts' split and a window's way may then differ "
+                         "between runs)")
     a = ap.parse_args(argv)
     sys.path.insert(0, str(ROOT / "serve"))
     import server
@@ -108,7 +118,7 @@ def main(argv=None) -> int:
         new = a.new or server.engine_exe(cfg)
         print(f"{name}: {len(ids)} prompt tokens, {a.max_new} to write, {a.runs} runs of each engine", flush=True)
         try:
-            runs = {k: [run_once(exe, cfg, ids, a.max_new, a.timeout) for _ in range(a.runs)]
+            runs = {k: [run_once(exe, cfg, ids, a.max_new, a.timeout, a.freeze) for _ in range(a.runs)]
                     for k, exe in (("old", a.old), ("new", new))}
         except (RuntimeError, subprocess.TimeoutExpired) as e:
             print(f"  a run failed: {e}")
