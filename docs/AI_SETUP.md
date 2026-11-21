@@ -77,7 +77,7 @@ PC):
 | Laguna-S 2.1 | `laguna-s` | UD-Q3_K_XL 54 GB (default), UD-Q4_K_XL 73 GB, Q4_K_M 96 GB | about 51 / 71 / 93 GB beside a 16 GB card | no |
 | Laguna-XS 2.1 | `laguna-xs` | Q4_K_M 20 GB | about 17 GB beside a 16 GB card | no |
 | Nemotron 3.5 Bolt | `nemotron-bolt` | 24GB (NVIDIA's own 2-bit file) 22 GB, 1.7 GB more with pictures | about 16 GB (not measured); needs 30 GB of VRAM together | yes |
-| Nemotron 3.5 Super | `nemotron-super` | UD-Q3_K_XL 66 GB | about 47 GB beside two 16 GB cards, 62 GB beside one | yes, not yet checked |
+| Nemotron 3.5 Super | `nemotron-super` | UD-Q3_K_XL 66 GB | about 47 GB beside two 16 GB cards, 62 GB beside one | yes |
 | Gemma 4 26B-A4B | `gemma4` | UD-Q3_K_M 13 GB (default), UD-Q2_K_XL, UD-Q4_K_M, QAT-UD-Q4_K_XL | about 15 to 21 GB beside an 8 GB card | yes |
 
 Ask the user what they want it for. Laguna-S is the largest and the default; Laguna-XS and Gemma 4 fit a PC with

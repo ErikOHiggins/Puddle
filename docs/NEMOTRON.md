@@ -188,9 +188,9 @@ starts with `--no-draft`: the MTP block, which guesses the next tokens ahead, do
 Puddle's image encoder (strata-vision), built from llama.cpp `08c252e22`'s mtmd, which has this encoder
 (`nemotron_omni`, the 1.7 GB `mmproj-BF16.gguf`, at its own limits: up to 3,407,872 pixels, as llama-server reads
 Bolt's). The server puts `<img>` and `</img>` around the picture's rows, as mtmd does; strata-poly reads them as text
-(causal, no rotation), so a picture may take more than one prompt batch. `--vision gpu` in setup turns them on. Not yet
-checked against llama-server: [`tools/poly_parity.py`](../tools/poly_parity.py) `--image <picture> --mmproj <file>`
-compares the two on one picture.
+(causal, no rotation), so a picture may take more than one prompt batch. `--vision gpu` in setup turns them on. The
+encoder warms up at its largest picture before the engine starts, so the engine sizes its expert cache around it:
+on echo at a 256K context it took the room of 716 experts, 6,451 to 5,735 of 20,480 in VRAM (16.6 to 14.1 GiB).
 
 **Measured** on echo (two RTX 5060 Ti 16 GB, i9-9900K, 128 GB of DDR4-3200, Linux), 2026-11-21, with
 [`tools/poly_parity.py`](../tools/poly_parity.py): llama.cpp `08c252e22` (llama-server) answers each prompt greedily,
@@ -202,6 +202,12 @@ strata-poly is made to write the same answer, and each step's first choice is co
 | code (22 tokens) | 32 of 32 | 64 of 64 |
 | chat (11 tokens) | 49 of 49 | 48 of 48 |
 | doc (2,109 tokens) | 64 of 64 | 23 of 23 |
+| picture (318 tokens, 300 of them the picture) | 63 of 64 (the other a near tie) | not run |
+
+The picture is llama.cpp's `tools/mtmd/test-1.jpeg` (640x488, a newspaper's front page), read by each program's own
+encoder from the same `mmproj-BF16.gguf` (`--image <picture> --mmproj <file>`): llama-server read 318 prompt tokens,
+as many as strata-poly's prompt has. Through Puddle's server, asked for the headline, Super gave it and the line
+under it word for word.
 
 A first look at Super's speed in those runs, not a benchmark: with 6,647 of its 20,480 experts in VRAM (17.1 GiB),
 it wrote 13.7 tokens/s after a short prompt, with the expert cache held still, no guesses and every launch made anew.
@@ -209,8 +215,7 @@ The CPU's experts took 50 to 54 ms of each token.
 
 ## Not there yet
 
-- Bolt on strata-poly in setup (it matches llama.cpp there, above), Super's MTP block, and a check of Super's
-  pictures against llama-server.
+- Bolt on strata-poly in setup (it matches llama.cpp there, above), and Super's MTP block.
 - strata-poly's speed on both: the recorded launches (CUDA graphs), guesses, and a same-day measurement against
   llama-server on the same files.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not

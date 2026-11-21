@@ -285,8 +285,9 @@ FAMILIES = {
     # runs on strata-poly (src/poly/nemotron_h.cpp); on echo its first choices were llama.cpp's at 177 of 177 steps
     # (tools/poly_parity.py, 2026-11-21).  Its MTP block does not run yet: the engine starts with --no-draft.  Pictures:
     # strata-vision (llama.cpp 08c252e22's mtmd, nemotron_omni) at the encoder file's own limits (vision_max_tokens 0:
-    # up to 3,407,872 pixels, as llama-server reads Bolt's); vision_vram_gb is an estimate (the weights 1.7 GB and the
-    # work buffers at the largest picture), not measured yet.
+    # up to 3,407,872 pixels, as llama-server reads Bolt's).  vision_vram_gb: measured on echo at a 256K context, the
+    # encoder warmed up at its largest picture before the engine started: 6,451 -> 5,735 experts in VRAM (16.6 -> 14.1
+    # GiB).  Its first choices on a picture were llama.cpp's at 63 of 64 steps, the other a near tie (2026-11-21).
     # vram_beside_gb: from echo's log, 17.1 GiB of experts on 2x RTX 5060 Ti 16 GB at an 8K context, the estimate's way.
     "nemotron-super": {"title": "Nemotron 3.5 Super", "by": "NVIDIA; quantized by Unsloth",
                        "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
@@ -297,7 +298,7 @@ FAMILIES = {
                        "tag": "nemotron-super-", "name": "nemotron-3.5-super", "engine": "poly", "vision": True,
                        "experimental": True, "metal": False, "ran_on_gb": 16, "row_bytes": 8192,
                        "mmproj_hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"), "mmproj": "mmproj-BF16.gguf",
-                       "vision_gb": 1.7, "vision_vram_gb": 3.5, "vision_max_tokens": 0,
+                       "vision_gb": 1.7, "vision_vram_gb": 2.5, "vision_max_tokens": 0,
                        "contexts": [8192, 32768, 65536, 131072, 262144],
                        "args": ["--no-draft"],
                        "license": "OpenMDW-1.1 (NVIDIA's): "
