@@ -387,6 +387,74 @@
   "code": 1,
   "config": null
  },
+ "128GB-1x24GB nemotron-bolt-poly 24GB": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
+ },
+ "128GB-1x24GB nemotron-bolt-poly recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
+ },
  "128GB-1x24GB nemotron-super UD-Q3_K_XL": {
   "code": 0,
   "config": {
@@ -975,6 +1043,82 @@
     "top_p": 0.95
    },
    "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
+  }
+ },
+ "32GB-2x24GB nemotron-bolt-poly 24GB": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
+ },
+ "32GB-2x24GB nemotron-bolt-poly recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
   }
  },
  "32GB-2x24GB nemotron-super UD-Q3_K_XL": {
@@ -1575,6 +1719,82 @@
    "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
   }
  },
+ "47GB-2x16GB nemotron-bolt-poly 24GB": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
+ },
+ "47GB-2x16GB nemotron-bolt-poly recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
+ },
  "47GB-2x16GB nemotron-super UD-Q3_K_XL": {
   "code": 0,
   "config": {
@@ -2117,6 +2337,74 @@
    "tokenizer": "<T>/data/packs/nemotron-bolt-24gb/tokenizer"
   }
  },
+ "64GB-1x32GB nemotron-bolt-poly 24GB": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
+ },
+ "64GB-1x32GB nemotron-bolt-poly recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
+ },
  "64GB-1x32GB nemotron-super UD-Q3_K_XL": {
   "code": 0,
   "config": {
@@ -2570,6 +2858,74 @@
  "96GB-1x16GB nemotron-bolt recommended": {
   "code": 1,
   "config": null
+ },
+ "96GB-1x16GB nemotron-bolt-poly 24GB": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
+ },
+ "96GB-1x16GB nemotron-bolt-poly recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/nemotron-bolt-24GB/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/nemotron-poly-bolt-24gb/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto",
+    "--no-draft"
+   ],
+   "cwd": "<T>",
+   "display_name": "Nemotron 3.5 Bolt (<strata-poly>) 24GB",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-nemotron-poly-bolt-24gb.log",
+   "model_name": "nemotron-3.5-bolt-poly-24gb",
+   "port": 8080,
+   "sampling": {
+    "min_p": 0.05,
+    "temperature": 1.0,
+    "top_k": 40,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/nemotron-poly-bolt-24gb/tokenizer"
+  }
  },
  "96GB-1x16GB nemotron-super UD-Q3_K_XL": {
   "code": 0,

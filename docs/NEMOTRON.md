@@ -6,7 +6,8 @@ compiles on your PC. Puddle's own server stays in front of it: the chat template
 endpoint and setting are the same as for the other models. llama-server only writes the tokens.
 
 strata-poly runs the architecture itself since phase 2 (`src/poly/nemotron_h.cpp`): Nemotron 3.5 Super is set up on it
-([below](#nemotron-35-super-on-strata-poly)), and Bolt matches llama.cpp on it too, though setup does not offer that yet.
+([below](#nemotron-35-super-on-strata-poly)), and Bolt runs on it as an opt-in second model beside the llama-server one
+([below](#nemotron-35-bolt-on-strata-poly)).
 
 **Status: experimental.** It has run on one machine, echo: with llama-server alone, and through Puddle for its first
 requests ([what was measured](#measured)).
@@ -213,9 +214,32 @@ A first look at Super's speed in those runs, not a benchmark: with 6,647 of its 
 it wrote 13.7 tokens/s after a short prompt, with the expert cache held still, no guesses and every launch made anew.
 The CPU's experts took 50 to 54 ms of each token.
 
+## Nemotron 3.5 Bolt on strata-poly
+
+`./setup.sh --setup --family nemotron-bolt-poly` sets up Bolt's file a second time, on strata-poly instead of
+llama-server. It is **opt-in**: llama-server stays Bolt's default (`--family nemotron-bolt`). The two are separate
+models, `nemotron-3.5-bolt-24gb` (llama-server) and `nemotron-3.5-bolt-poly-24gb` (strata-poly), each with its own run
+config (`strata-nemotron-bolt-24gb.json`, `strata-nemotron-poly-bolt-24gb.json`), so a request switches between them by
+name. They share the file: setup keeps it in `Puddle-data/models/nemotron-bolt-24GB/` and downloads it once. The
+engine starts with `--no-draft` (Bolt has no MTP block). `--vision gpu` adds pictures through the image encoder
+Super uses (strata-vision with NVIDIA's `mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf`, which has the same
+settings as Super's).
+
+strata-poly does not need every layer on the cards: the experts that do not fit stay in RAM. **Measured** on echo
+(2026-11-21, strata-poly started from the shell, a 32K context, no image encoder):
+
+| Cards | Routed experts in VRAM |
+| --- | ---: |
+| one RTX 5060 Ti 16 GB | 7,913 of 13,824 (8.9 GiB) |
+| two RTX 5060 Ti 16 GB | all 13,824 (15.9 GiB) |
+
+From that, setup estimates about 17 GB of RAM beside one 16 GB card. Its first choices matched llama.cpp's at 198 of
+199 steps ([the table above](#nemotron-35-super-on-strata-poly)). Not measured yet: its speed, and its pictures
+against llama-server.
+
 ## Not there yet
 
-- Bolt on strata-poly in setup (it matches llama.cpp there, above), and Super's MTP block.
+- Super's MTP block; Bolt on strata-poly's pictures checked against llama-server.
 - strata-poly's speed on both: the recorded launches (CUDA graphs), guesses, and a same-day measurement against
   llama-server on the same files.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not

@@ -280,6 +280,28 @@ FAMILIES = {
                                  (22018326528, "91d63363e782c8a3d5f4be42816eba8e0d42dd2530bd07a7d0d2dc440599af75"),
                                  "mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf":
                                  (1733692736, "0ee891eadc7bf0cae6289b249c74eb1ef420534351f6ef8b64d49f0ca6a926b0")}},
+    # Nemotron 3.5 Bolt on strata-poly (src/poly/nemotron_h.cpp), opt-in beside the llama-server family above, which
+    # stays Bolt's default: the same files, kept in that family's folder ("files_of": downloaded once), with a config
+    # and model name of its own, so the two run side by side and a request switches between them by name.  On echo
+    # its first choices were llama.cpp's at 198 of 199 steps (tools/poly_parity.py, 2026-11-21).  arena_gb: the file's
+    # routed experts, 17,052,794,880 bytes.  vram_beside_gb: echo, one RTX 5060 Ti 16 GB (15.93 GiB) at a 32K context,
+    # 7,913 of 13,824 experts in VRAM (8.9 GiB), the estimate's way; on both cards all 13,824 (15.9 GiB).
+    # vision_vram_gb: Super's measurement of the same encoder (nemotron_omni, the same settings), not Bolt's own.
+    # --no-draft: Bolt has no MTP block, and NemotronH no draft path yet.  Its tag does not begin with the llama-server
+    # family's "nemotron-bolt-": a config's family is the one whose tag its name begins with (choices_from_config()).
+    "nemotron-bolt-poly": {"title": "Nemotron 3.5 Bolt (strata-poly)", "by": "NVIDIA", "engine": "poly",
+                           "files_of": "nemotron-bolt",
+                           "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
+                           "about": "74B-A9B, reads pictures; Bolt's 22 GB file on Puddle's own engine, beside the "
+                                    "llama-server one: ~17 GB of RAM beside a 16 GB card, every expert on two",
+                           "tag": "nemotron-poly-bolt-", "name": "nemotron-3.5-bolt-poly", "vision": True,
+                           "experimental": True, "metal": False, "ran_on_gb": 16, "row_bytes": 8192,
+                           "vision_vram_gb": 2.5, "vision_max_tokens": 0,
+                           "contexts": [8192, 32768, 65536, 131072, 262144],
+                           "args": ["--no-draft"],
+                           "models": {"24GB": {"about": "NVIDIA's own 2-bit file (quantization-aware trained)",
+                                               "download_gb": 22.0, "ram_gb": 17, "arena_gb": 17.1,
+                                               "vram_beside_gb": 7.0}}},
     # Nemotron 3.5 Super VL 120B-A12B (NVIDIA; quantized by Unsloth): Bolt's architecture (nemotron_h_moe: Mamba-2,
     # attention and LatentMoE layers) at its full size, 512 experts a layer of which 22 are used, and an MTP block.  It
     # runs on strata-poly (src/poly/nemotron_h.cpp); on echo its first choices were llama.cpp's at 177 of 177 steps
@@ -367,6 +389,14 @@ FAMILIES = {
                           "mmproj-F16.gguf":
                           (1193058784, "418a6d8723067cd712235facbbc5cba6c8fbbd413fc1292d2aace5a027d5a42f")}},
 }
+# A family on another family's files ("files_of"): the same downloads at the same revision, checked against the same
+# SHA-256, and kept in that family's folder (files_tag()), so they are downloaded once for both.  A size of its own
+# (one the other family does not have) gives its own "hf", "file", "shards" and "sha256" and has its own folder.
+for _d in FAMILIES.values():
+    if _d.get("files_of"):
+        for _k in ("hf", "file", "shards", "mmproj_hf", "mmproj", "vision_gb", "sha256", "license"):
+            if _k in FAMILIES[_d["files_of"]]:
+                _d.setdefault(_k, FAMILIES[_d["files_of"]][_k])
 # the image encoder's defaults: the most image tokens a picture becomes, and the VRAM kept free beside it
 VISION = {"gpu": {"max_tokens": 1024, "reserve_mib": 700},
           "cpu": {"max_tokens": 300, "reserve_mib": 700}}
@@ -1130,6 +1160,14 @@ def model_shards(fam: dict, model: str) -> int:
     return fam["models"].get(model, {}).get("shards", fam.get("shards", 2))
 
 
+def files_tag(fam: dict, tag: str, model: str, custom=None) -> str:
+    """The folder under models/ a size's files are kept in: its own tag's, or for a size of a family on another
+    family's files ("files_of") that the other family has too, that family's, so both find the one download.  A file
+    the user gave (`custom`) keeps its own tag."""
+    other = FAMILIES.get(fam.get("files_of") or "", {})
+    return other["tag"] + model if model in other.get("models", {}) and not custom else tag
+
+
 def gpu_info(pick=None):
     """The GPU Puddle runs on: `pick` (nvidia-smi's number) if given, else the one with the most VRAM (ties: the
     lower number).  None when there is no NVIDIA GPU.  The dict also says how many there are ("count")."""
@@ -1453,7 +1491,7 @@ def verify_sha256(s: Path, size: int, sha: str, own: bool = False) -> None:
 # general.architecture of each strata-poly family's GGUFs, the name Engine::open() (src/poly/engine.cpp) picks its
 # code by; the families not listed are qwen35moe
 POLY_GGUF_ARCHS = {"laguna-s": ("laguna",), "laguna-xs": ("laguna",), "nemotron-super": ("nemotron_h_moe",),
-                   "gemma4": ("gemma4",)}
+                   "nemotron-bolt-poly": ("nemotron_h_moe",), "gemma4": ("gemma4",)}
 
 
 def gguf_arch(s: Path) -> str:
@@ -4080,7 +4118,8 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
         ok("conversation cache: " + (f"up to {conv} MiB of RAM" if conv else "off (the last conversation is kept)"))
 
     # one file, or the numbered files of a split GGUF: the engine is given the first and finds the others by name
-    models_dir = Path(a.gguf_dir) if a.gguf_dir else Path(a.models_dir) / tag
+    ftag = files_tag(fam, tag, model, _sg)
+    models_dir = Path(a.gguf_dir) if a.gguf_dir else Path(a.models_dir) / ftag
     shards = (_sg if _sg
               else gguf_dir_shards(models_dir, fam, model) if a.gguf_dir else
               [models_dir / model_file(fam, model, i) for i in range(1, model_shards(fam, model) + 1)])
@@ -4090,7 +4129,7 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
              "put the file there under that name, or leave out --gguf-dir and setup downloads it")
     if not a.gguf_dir and not all(s.exists() and done(s) for s in shards):
         for r in elsewhere:                            # already downloaded in a Puddle folder on another drive
-            cand = [r / "models" / tag / s.name for s in shards]
+            cand = [r / "models" / ftag / s.name for s in shards]
             if all(c.exists() and done(c) for c in cand):
                 models_dir, shards = cand[0].parent, cand
                 ok(f"model file found in {models_dir}")
@@ -4103,12 +4142,12 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
     # the size's draft model: beside the model's file, or, when --gguf-dir has none, where setup keeps its own
     guesser = models_dir / Path(d["draft_model"]).name if d.get("draft_model") else None
     if guesser is not None and a.gguf_dir and not guesser.exists():
-        guesser = Path(a.models_dir) / tag / guesser.name
+        guesser = Path(a.models_dir) / ftag / guesser.name
     have_guesser = guesser is None or guesser.exists() and (done(guesser) or bool(a.gguf_dir) or whole_shard(guesser))
     # the image encoder, in the same places
     mmproj = models_dir / fam["mmproj"] if vision != "none" else None
     if mmproj is not None and a.gguf_dir and not mmproj.exists():
-        mmproj = Path(a.models_dir) / tag / mmproj.name
+        mmproj = Path(a.models_dir) / ftag / mmproj.name
     # user-supplied mmproj: accept any file with "mmproj" in the name
     if (mmproj is not None and not mmproj.is_file() and _sg):
         cands = list(models_dir.glob("*mmproj*"))

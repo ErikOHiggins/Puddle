@@ -37,6 +37,14 @@ POLY_ARCHS = {"laguna": {48: "Laguna S 2.1", 40: "Laguna XS 2.1"}, "nemotron_h_m
 LLAMA_ARCHS = {"nemotron_h_moe": "Nemotron 3.5 Bolt"}
 
 
+def known_sentence(exact: list) -> str:
+    """The verdict for a file setup installs: each family/size that installs it (Bolt's file: on llama-server, and on
+    strata-poly as nemotron-bolt-poly)."""
+    first, *more = [k.split("/") for k in exact]
+    return (f"this is setup's --family {first[0]} --model {first[1]}"
+            + "".join(f" (or --family {f} --model {m})" for f, m in more) + " (give its folder with --gguf-dir)")
+
+
 def family_title(fp: dict) -> str:
     """The title of the family a GGUF's architecture (and layer count) belongs to, "" for none."""
     t = POLY_ARCHS.get(fp.get("arch"), "")
@@ -114,8 +122,7 @@ def verdict(fp: dict, table: dict) -> tuple[str, str]:
              and v["tensors"] == fp["tensors"] and v.get("arch") == fp["arch"]]
     if fp["arch"] in LLAMA_ARCHS and not title:       # llama-server's: setup's own file, or nothing
         if exact:
-            fam, model = exact[0].split("/")
-            return "known", f"this is setup's --family {fam} --model {model} (give its folder with --gguf-dir)"
+            return "known", known_sentence(exact)
         return "no", (f"a {fp['arch']} model setup does not offer: Puddle runs {LLAMA_ARCHS[fp['arch']]} from "
                       "NVIDIA's own file on llama-server, and sets up no other file of it")
     if fp["arch"] not in POLY_ARCHS:
@@ -126,8 +133,7 @@ def verdict(fp: dict, table: dict) -> tuple[str, str]:
         return "no", (f"a {fp['arch']} model of {fp.get('layers')} layers: Puddle has no family of that size "
                       "(Laguna-S has 48, Laguna-XS 40)")
     if exact:
-        fam, model = exact[0].split("/")
-        return "known", f"this is setup's --family {fam} --model {model} (give its folder with --gguf-dir)"
+        return "known", known_sentence(exact)
     same = [k for k, v in known.items() if v["expert_bytes"] == fp["expert_bytes"]]
     if same:
         return "layout", ("the routed experts are stored exactly as in " + " / ".join(same) +

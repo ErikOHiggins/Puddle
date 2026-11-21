@@ -25,8 +25,9 @@ Puddle.
 
 All five are experimental. poolside's Laguna-S Q4_K_M keeps 8 of its 47 expert layers in BF16, which run on the
 processor every token, and it has a 1M-token rope where Unsloth's files have 262K; it has not been run yet.
-Nemotron 3.5 Bolt runs on llama.cpp's `llama-server` for now, which setup compiles, with Puddle's server in front of
-it. Nemotron 3.5 Super runs on strata-poly, pictures too; its MTP block, which guesses the next tokens ahead, does not
+Nemotron 3.5 Bolt runs on llama.cpp's `llama-server` by default, which setup compiles, with Puddle's server in front of
+it; `--family nemotron-bolt-poly` runs the same file on strata-poly, as a second model beside it (opt-in), and fits
+one 16 GB card. Nemotron 3.5 Super runs on strata-poly, pictures too; its MTP block, which guesses the next tokens ahead, does not
 run yet ([docs/NEMOTRON.md](docs/NEMOTRON.md)).
 
 Which models Puddle offers: open-weight models whose license puts no restriction on their use, OpenMDW first (both
@@ -104,7 +105,7 @@ installs the build tools first, and asks; the first compile takes 10 to 20 minut
 it. If the download stops, run it again: it continues where it stopped. Your browser opens the app at
 `http://127.0.0.1:8080`.
 
-`./setup.sh --family laguna-s` (or `laguna-xs`, `nemotron-bolt`, `nemotron-super`, `gemma4`) goes straight to one model, and `--model SIZE`
+`./setup.sh --family laguna-s` (or `laguna-xs`, `nemotron-bolt`, `nemotron-bolt-poly`, `nemotron-super`, `gemma4`) goes straight to one model, and `--model SIZE`
 to one size. Every option: [docs/INSTALL.md](docs/INSTALL.md).
 
 **Next time**, run `START-HERE.bat` (or `./setup.sh`) again: it starts right away and downloads nothing twice. Close

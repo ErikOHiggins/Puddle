@@ -5,8 +5,9 @@ Gemma 4 26B-A4B - on a normal PC: one or two NVIDIA or AMD graphics cards plus s
 as a beta). Its engine is `strata-poly` (`src/poly/`), with a Python server that has an OpenAI- and
 Anthropic-compatible API and a web app (`serve/`), and a one-click installer (`setup.py`, started by `START-HERE.bat` /
 `setup.sh`) that compiles the engine on the PC. strata-poly runs the Nemotrons' architecture (`nemotron_h_moe`, `src/poly/nemotron_h.cpp`): setup
-gives it Nemotron 3.5 Super, and still gives Nemotron 3.5 Bolt llama.cpp's `llama-server`, which it compiles too; the
-server talks to that as an engine (`LlamaServerEngine`, [docs/NEMOTRON.md](docs/NEMOTRON.md)).
+gives it Nemotron 3.5 Super, and Bolt as an opt-in second model (`nemotron-bolt-poly`); Bolt's default is still
+llama.cpp's `llama-server`, which it compiles too; the server talks to that as an engine (`LlamaServerEngine`,
+[docs/NEMOTRON.md](docs/NEMOTRON.md)).
 
 Puddle is a fork of [PolyStrata](https://github.com/simplexai-labs/PolyStrata), which is built on
 [Strata](https://github.com/Niko1221/Strata). Strata's Qwen3.8 engine and PolyStrata's other models have been removed:

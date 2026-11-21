@@ -27,8 +27,9 @@ The engine also keeps its `qwen35moe` class (`Qwen35`) as the test case for recu
 
 ## Install
 
-Setup installs all three (and Nemotron 3.5 Bolt, `--family nemotron-bolt`: [NEMOTRON.md](NEMOTRON.md#install)); each
-has a family name that goes straight to it:
+Setup installs all three (and the Nemotrons: Super, `--family nemotron-super`, and Bolt, `--family nemotron-bolt` on
+llama-server or `--family nemotron-bolt-poly` on strata-poly: [NEMOTRON.md](NEMOTRON.md#install)); each has a family
+name that goes straight to it:
 
 ```bash
 ./setup.sh --family laguna-s

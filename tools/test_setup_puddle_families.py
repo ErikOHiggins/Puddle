@@ -30,7 +30,8 @@ def arg(cfg, flag):
 
 class Catalog(unittest.TestCase):
     def test_the_families_and_their_order(self):
-        self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "nemotron-bolt", "nemotron-super", "gemma4"])
+        self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "nemotron-bolt", "nemotron-bolt-poly",
+                                                "nemotron-super", "gemma4"])
         self.assertEqual(list(setup.family_models("nemotron-bolt")), ["24GB"])
         self.assertEqual(list(setup.family_models("laguna-s")), ["UD-Q3_K_XL", "UD-Q4_K_XL", "Q4_K_M"])
         self.assertEqual(list(setup.family_models("laguna-xs")), ["Q4_K_M"])
@@ -80,6 +81,7 @@ class Install(unittest.TestCase):
         want = {"laguna-s": {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1},
                 "laguna-xs": {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1},
                 "nemotron-bolt": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
+                "nemotron-bolt-poly": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
                 "nemotron-super": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
                 "gemma4": {"temperature": 1.0, "top_p": 0.95, "top_k": 64}}
         self.assertEqual({f: fam.get("sampling") for f, fam in setup.FAMILIES.items()}, want)
@@ -149,6 +151,51 @@ class Install(unittest.TestCase):
         code, out, cfg = self.main(family="gemma4", ram=14.0, vram=7.9)   # UD-Q3_K_M wants more
         self.assertEqual(code, 0, out[-3000:])
         self.assertEqual(cfg["model_name"], "gemma-4-26b-a4b-ud-q2_k_xl")
+
+
+class BoltOnStrataPoly(unittest.TestCase):
+    """Nemotron 3.5 Bolt on strata-poly (nemotron-bolt-poly), opt-in beside the llama-server family: Bolt's files, from
+    that family's folder (downloaded once), a config and model name of its own."""
+    setUp, tearDown, main = PolyMain.setUp, PolyMain.tearDown, PolyMain.main
+
+    def two_16(self, *argv, family="nemotron-bolt-poly", **kw):
+        cards = [{"index": i, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120", "driver": "580.97"}
+                 for i in range(2)]
+        return self.main(list(argv), family=family, ram=128.0, cards=cards, **kw)
+
+    def test_the_family_is_bolts_files_on_strata_poly(self):
+        bolt, poly = setup.FAMILIES["nemotron-bolt"], setup.FAMILIES["nemotron-bolt-poly"]
+        for k in ("hf", "file", "shards", "mmproj_hf", "mmproj", "vision_gb", "sha256", "license"):
+            self.assertEqual(poly[k], bolt[k], k)
+        self.assertEqual((poly["engine"], poly["args"]), ("poly", ["--no-draft"]))
+        self.assertEqual(setup.POLY_GGUF_ARCHS["nemotron-bolt-poly"], ("nemotron_h_moe",))
+        self.assertEqual(list(poly["models"]), list(bolt["models"]))
+        # its size is the other family's: that folder; a size of its own would have its own
+        self.assertEqual(setup.files_tag(poly, "nemotron-poly-bolt-24GB", "24GB"), "nemotron-bolt-24GB")
+        self.assertEqual(setup.files_tag(poly, "nemotron-poly-bolt-UD-Q4_K_XL", "UD-Q4_K_XL"),
+                         "nemotron-poly-bolt-UD-Q4_K_XL")
+
+    def test_a_config_of_its_own_on_strata_poly(self):
+        code, out, cfg = self.two_16("--vision", "gpu")             # pictures are asked for, as Super's are
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertEqual(Path(cfg["exe"]).name, setup.POLY_EXE)
+        self.assertEqual(cfg["model_name"], "nemotron-3.5-bolt-poly-24gb")
+        self.assertIn("--no-draft", cfg["args"])
+        self.assertEqual(Path(arg(cfg, "--model")).parent.name, "nemotron-bolt-24GB")
+        self.assertEqual(Path(cfg["vision"]["mmproj"]).name, setup.FAMILIES["nemotron-bolt"]["mmproj"])
+        self.assertFalse(cfg["vision"].get("max_tokens"))           # the encoder file's own limits
+        self.assertEqual(setup.choices_from_config(next(self.t.glob("strata-nemotron-poly-bolt-*.json")))["family"],
+                         "nemotron-bolt-poly")
+
+    def test_the_llama_server_familys_download_is_used(self):
+        code, out, cfg = self.two_16(family="nemotron-bolt")
+        self.assertEqual(code, 0, out[-3000:])
+        first = list(self.downloads)
+        code, out, cfg = self.two_16()
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertEqual(self.downloads, first)                   # nothing downloaded again
+        configs = sorted(x.name for x in self.t.glob("strata-nemotron-*.json"))
+        self.assertEqual(configs, ["strata-nemotron-bolt-24gb.json", "strata-nemotron-poly-bolt-24gb.json"])
 
 
 class Bolt(unittest.TestCase):

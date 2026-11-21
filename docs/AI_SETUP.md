@@ -77,6 +77,7 @@ PC):
 | Laguna-S 2.1 | `laguna-s` | UD-Q3_K_XL 54 GB (default), UD-Q4_K_XL 73 GB, Q4_K_M 96 GB | about 51 / 71 / 93 GB beside a 16 GB card | no |
 | Laguna-XS 2.1 | `laguna-xs` | Q4_K_M 20 GB | about 17 GB beside a 16 GB card | no |
 | Nemotron 3.5 Bolt | `nemotron-bolt` | 24GB (NVIDIA's own 2-bit file) 22 GB, 1.7 GB more with pictures | about 16 GB (not measured); needs 30 GB of VRAM together | yes |
+| Nemotron 3.5 Bolt on strata-poly (opt-in) | `nemotron-bolt-poly` | the same 24GB file (setup uses the one `nemotron-bolt` downloaded) | about 17 GB beside a 16 GB card; every expert on two | yes |
 | Nemotron 3.5 Super | `nemotron-super` | UD-Q3_K_XL 66 GB | about 47 GB beside two 16 GB cards, 62 GB beside one | yes |
 | Gemma 4 26B-A4B | `gemma4` | UD-Q3_K_M 13 GB (default), UD-Q2_K_XL, UD-Q4_K_M, QAT-UD-Q4_K_XL | about 15 to 21 GB beside an 8 GB card | yes |
 
@@ -101,9 +102,9 @@ The flags (all of them: `./setup.sh --help`):
 | Flag | Meaning |
 | --- | --- |
 | `--yes` | take the recommended answer to every question (no prompts) |
-| `--family laguna-s\|laguna-xs\|nemotron-bolt\|nemotron-super\|gemma4` | the model |
+| `--family laguna-s\|laguna-xs\|nemotron-bolt\|nemotron-bolt-poly\|nemotron-super\|gemma4` | the model |
 | `--model SIZE` | the size (step 3) |
-| `--context N` | context in tokens (default asked; `--yes`: 32768); up to 1048576. Nemotron 3.5 Bolt: 168000 on two 16 GB cards, else the largest that fits (llama-server's `--fit`); 4096 to 262144 |
+| `--context N` | context in tokens (default asked; `--yes`: 32768); up to 1048576. Nemotron 3.5 Bolt on llama-server: 168000 on two 16 GB cards, else the largest that fits (llama-server's `--fit`); 4096 to 262144 |
 | `--vision yes\|no\|gpu\|cpu` | read pictures (Gemma 4; `--yes` leaves them off) or not (Nemotron 3.5 Bolt; `--yes` turns them on); none on AMD cards |
 | `--gpu N` / `--gpus 0,1` / `--gpus all` | one card, or several sharing the model |
 | `--backend cuda\|hip` | NVIDIA or AMD; chosen by itself on a PC with only one kind of card |

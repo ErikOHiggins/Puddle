@@ -13,8 +13,8 @@ this for you with [AI_SETUP.md](AI_SETUP.md). A Mac: [MAC.md](MAC.md).
 
 | | |
 | --- | --- |
-| **GPU** | **NVIDIA** RTX 20 series or newer, 8 GB of VRAM or more; Laguna-S wants 16 GB or two cards, Nemotron 3.5 Bolt 30 GB of VRAM together (one 32 GB card or two 16 GB, NVIDIA only), Nemotron 3.5 Super 16 GB or more. Laguna and both Nemotrons have run on two RTX 5060 Ti 16 GB. **AMD** cards are experimental: [AMD cards](#amd-cards). Pascal / Volta cards: [OLDER_GPUS.md](OLDER_GPUS.md). |
-| **RAM** | By model and size, setup's estimate beside the card: Laguna-S about 51 to 93 GB beside a 16 GB card, Laguna-XS about 17 GB beside a 16 GB card, Nemotron 3.5 Bolt about 16 GB (it keeps every layer on the cards; not measured), Nemotron 3.5 Super about 47 GB beside two 16 GB cards and 62 beside one, Gemma 4 15 to 21 GB beside an 8 GB card. `--check` prints it for your PC. |
+| **GPU** | **NVIDIA** RTX 20 series or newer, 8 GB of VRAM or more; Laguna-S wants 16 GB or two cards, Nemotron 3.5 Bolt 30 GB of VRAM together on llama-server (one 32 GB card or two 16 GB, NVIDIA only) or 16 GB on strata-poly (`nemotron-bolt-poly`), Nemotron 3.5 Super 16 GB or more. Laguna and both Nemotrons have run on two RTX 5060 Ti 16 GB. **AMD** cards are experimental: [AMD cards](#amd-cards). Pascal / Volta cards: [OLDER_GPUS.md](OLDER_GPUS.md). |
+| **RAM** | By model and size, setup's estimate beside the card: Laguna-S about 51 to 93 GB beside a 16 GB card, Laguna-XS about 17 GB beside a 16 GB card, Nemotron 3.5 Bolt about 16 GB on llama-server (it keeps every layer on the cards; not measured) and about 17 GB beside a 16 GB card on strata-poly, Nemotron 3.5 Super about 47 GB beside two 16 GB cards and 62 beside one, Gemma 4 15 to 21 GB beside an 8 GB card. `--check` prints it for your PC. |
 | **CPU** | x86-64 with AVX2 (any Intel/AMD desktop CPU from the last ~8 years). Without AVX2 it is experimental and slow: [Older CPUs](#older-cpus-experimental). |
 | **Disk** | The model: 11 to 96 GB by size (Laguna-S UD-Q3_K_XL 54 GB, Laguna-XS 20 GB, Nemotron 3.5 Bolt 22 GB, Nemotron 3.5 Super 66 GB, Gemma 4 11 to 17 GB), plus 1.2 to 1.7 GB for pictures, a few GB for the build, and on Linux with an AMD card ~10 GB for ROCm. An NVMe SSD makes starts faster. |
 | **OS** | Linux or Windows 10/11. Laguna and the Nemotrons have run on Linux only so far: on Windows setup says so (and asks first for Laguna and Nemotron 3.5 Super). |
@@ -113,17 +113,17 @@ them and sets itself up the same way: nothing big is downloaded again.
 
 ## Setup's questions
 
-- **Which model and size?** Laguna-S, Laguna-XS, Nemotron 3.5 Bolt, Nemotron 3.5 Super or Gemma 4, and a size of it; each line says its
+- **Which model and size?** Laguna-S, Laguna-XS, Nemotron 3.5 Bolt (on llama-server, or on strata-poly), Nemotron 3.5 Super or Gemma 4, and a size of it; each line says its
   download and the RAM setup expects on your card.
 - **Which cards?** One, or several sharing the model.
 - **How much context?** How much text it can keep in mind at once: 8K, 32K (recommended), 64K or 128K, each with the
-  VRAM it takes from the expert cache. Gemma 4 also offers 256K, its files' own length (not yet run at that length). `--context N` takes any length up to 1048576. Nemotron 3.5 Bolt is not asked:
+  VRAM it takes from the expert cache. Gemma 4 also offers 256K, its files' own length (not yet run at that length). `--context N` takes any length up to 1048576. Nemotron 3.5 Bolt on llama-server is not asked:
   168K on two 16 GB cards (as it runs on echo), else the largest that fits, chosen by llama-server each time it loads.
-- **Images?** For Gemma 4 and Nemotron 3.5 Bolt: whether the model should also read pictures. Gemma 4's image
-  encoder runs on the GPU from 15.5 GB of VRAM, else on the CPU (a few seconds a picture); Bolt's is on the cards
-  with the model (recommended: yes).
+- **Images?** For Gemma 4 and the Nemotrons: whether the model should also read pictures. On strata-poly the image
+  encoder runs on the GPU from 15.5 GB of VRAM, else on the CPU (Gemma 4's: a few seconds a picture; the Nemotrons'
+  has not been run on the CPU); Bolt's on llama-server is on the cards with the model (recommended: yes).
 - **Several conversations in RAM?** The conversation cache keeps conversations a coding agent switches between in RAM,
-  so they are not read again (up to 8 GB of RAM). Not asked for Nemotron 3.5 Bolt: llama-server keeps earlier prompts
+  so they are not read again (up to 8 GB of RAM). Not asked for Bolt on llama-server: llama-server keeps earlier prompts
   in RAM itself (up to 8 GiB).
 
 With `--yes` setup takes the recommended answer to every question.
