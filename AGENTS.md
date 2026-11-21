@@ -1,12 +1,12 @@
 # AGENTS.md
 
-Puddle runs four mixture-of-experts models - Laguna-S 2.1, Laguna-XS 2.1, Nemotron 3.5 Bolt and Gemma 4 26B-A4B -
-on a normal PC: one or two NVIDIA or AMD graphics cards plus system RAM, on Windows or Linux (a Mac as a beta). Its
-engine is `strata-poly` (`src/poly/`), with a Python server that has an OpenAI- and Anthropic-compatible API and a
-web app (`serve/`), and a one-click installer (`setup.py`, started by `START-HERE.bat` / `setup.sh`) that compiles the
-engine on the PC. Nemotron 3.5 Bolt runs on llama.cpp's `llama-server` until strata-poly runs its architecture
-(`nemotron_h_moe`): setup compiles llama-server too, and the server talks to it as an engine
-(`LlamaServerEngine`, [docs/NEMOTRON.md](docs/NEMOTRON.md)).
+Puddle runs five mixture-of-experts models - Laguna-S 2.1, Laguna-XS 2.1, Nemotron 3.5 Bolt, Nemotron 3.5 Super and
+Gemma 4 26B-A4B - on a normal PC: one or two NVIDIA or AMD graphics cards plus system RAM, on Windows or Linux (a Mac
+as a beta). Its engine is `strata-poly` (`src/poly/`), with a Python server that has an OpenAI- and
+Anthropic-compatible API and a web app (`serve/`), and a one-click installer (`setup.py`, started by `START-HERE.bat` /
+`setup.sh`) that compiles the engine on the PC. strata-poly runs the Nemotrons' architecture (`nemotron_h_moe`, `src/poly/nemotron_h.cpp`): setup
+gives it Nemotron 3.5 Super, and still gives Nemotron 3.5 Bolt llama.cpp's `llama-server`, which it compiles too; the
+server talks to that as an engine (`LlamaServerEngine`, [docs/NEMOTRON.md](docs/NEMOTRON.md)).
 
 Puddle is a fork of [PolyStrata](https://github.com/simplexai-labs/PolyStrata), which is built on
 [Strata](https://github.com/Niko1221/Strata). Strata's Qwen3.8 engine and PolyStrata's other models have been removed:
@@ -15,8 +15,8 @@ stays as the test case for recurrent layers until the Nemotron (Mamba-2) port wo
 
 ## Which models belong
 
-Open-weight models whose license puts no restriction on their use: **OpenMDW first** (Laguna-S 2.1, Laguna-XS 2.1
-and Nemotron 3.5 Bolt are OpenMDW-1.1), **with Apache 2.0 accepted to fill a gap when required** (Gemma 4 26B-A4B,
+Open-weight models whose license puts no restriction on their use: **OpenMDW first** (Laguna-S 2.1, Laguna-XS 2.1,
+Nemotron 3.5 Bolt and Super are OpenMDW-1.1), **with Apache 2.0 accepted to fill a gap when required** (Gemma 4 26B-A4B,
 which reads pictures on cards too small for Bolt). A model is checked against this rule before it is added. The OpenMDW index,
 [models.openmdw.ai](https://models.openmdw.ai/), lists the candidates.
 

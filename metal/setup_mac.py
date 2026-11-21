@@ -42,7 +42,8 @@ EXE = BUILD_DIR / "strata-poly"
 MIN_MACOS = (15, 0)        # MTLResidencySet (the engine keeps every buffer resident through one)
 
 # Every family runs on strata-poly; its files, revisions, sizes and checksums stay in setup.py's single catalog.
-MAC_POLY_FAMILIES = tuple(f for f, d in S.FAMILIES.items() if d.get("engine") == "poly")
+# (a family the Metal build has no kernels for says "metal": False: Nemotron 3.5 Super's Mamba-2 layers)
+MAC_POLY_FAMILIES = tuple(f for f, d in S.FAMILIES.items() if d.get("engine") == "poly" and d.get("metal", True))
 
 
 def smaller_model_catalog() -> dict:

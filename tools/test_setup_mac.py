@@ -125,7 +125,8 @@ class Source(unittest.TestCase):
 class SmallerModelCatalog(unittest.TestCase):
     def test_uses_shared_family_sizes_and_filenames(self):
         catalog = M.smaller_model_catalog()
-        self.assertEqual(set(catalog), {f for f,d in setup.FAMILIES.items() if d.get("engine")=="poly"})
+        self.assertEqual(set(catalog), {f for f,d in setup.FAMILIES.items()
+                                        if d.get("engine")=="poly" and d.get("metal", True)})
         for family, entry in catalog.items():
             self.assertTrue(entry["metal_ready"])
             self.assertFalse(entry["model_validated"])
@@ -238,10 +239,12 @@ class SmallerModelSetup(unittest.TestCase):
 class FullCatalog(unittest.TestCase):
     def test_every_family_and_quant_uses_the_shared_catalog(self):
         catalog = M.model_catalog()
-        poly = {f for f, d in setup.FAMILIES.items() if d.get("engine") == "poly"}   # not llama-server's (Bolt)
+        # not llama-server's (Bolt), nor one the Metal build has no kernels for (Super: "metal": False)
+        poly = {f for f, d in setup.FAMILIES.items() if d.get("engine") == "poly" and d.get("metal", True)}
         self.assertEqual(set(catalog), poly)
         self.assertEqual(set(M.MAC_POLY_FAMILIES), poly)
         self.assertNotIn("nemotron-bolt", catalog)
+        self.assertNotIn("nemotron-super", catalog)
         for family, entry in catalog.items():
             self.assertEqual(entry["models"], setup.family_models(family))
             self.assertEqual(entry["metal_engine"], "strata-poly")

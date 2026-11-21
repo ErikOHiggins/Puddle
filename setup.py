@@ -67,6 +67,7 @@ HF_REVISIONS = {
     "unsloth/gemma-4-26B-A4B-it-GGUF": "c099eb48e663fd284577b04978a94ffccb261841",                     # 2026-10-05
     "unsloth/gemma-4-26B-A4B-it-qat-GGUF": "7b92b5b28818151e8669af2e45e88d6086f490dd",                 # 2026-10-26
     "nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF": "e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246",  # 2026-10-15
+    "unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF": "75a5829055f69a0359085ae6bbd0a81b60bc05c6",  # 2026-10-15
 }
 
 
@@ -278,6 +279,33 @@ FAMILIES = {
                                  (22018326528, "91d63363e782c8a3d5f4be42816eba8e0d42dd2530bd07a7d0d2dc440599af75"),
                                  "mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf":
                                  (1733692736, "0ee891eadc7bf0cae6289b249c74eb1ef420534351f6ef8b64d49f0ca6a926b0")}},
+    # Nemotron 3.5 Super VL 120B-A12B (NVIDIA; quantized by Unsloth): Bolt's architecture (nemotron_h_moe: Mamba-2,
+    # attention and LatentMoE layers) at its full size, 512 experts a layer of which 22 are used, and an MTP block.  It
+    # runs on strata-poly (src/poly/nemotron_h.cpp); on echo its first choices were llama.cpp's at 177 of 177 steps
+    # (tools/poly_parity.py, 2026-11-21).  Its MTP block and pictures do not run yet: the engine starts with --no-draft.
+    # vram_beside_gb: from echo's log, 17.1 GiB of experts on 2x RTX 5060 Ti 16 GB at an 8K context, the estimate's way.
+    "nemotron-super": {"title": "Nemotron 3.5 Super", "by": "NVIDIA; quantized by Unsloth",
+                       "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
+                       "about": "120B-A12B; a 66 GB file, ~62 GB of RAM beside a 16 GB card; runs on 2x RTX 5060 Ti 16 GB "
+                                "on the strata-poly engine, without pictures for now",
+                       "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"),
+                       "file": "{q}/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-{q}-0000{i}-of-00003.gguf", "shards": 3,
+                       "tag": "nemotron-super-", "name": "nemotron-3.5-super", "engine": "poly", "experimental": True,
+                       "metal": False, "ran_on_gb": 16, "row_bytes": 8192,
+                       "contexts": [8192, 32768, 65536, 131072, 262144],
+                       "args": ["--no-draft"],
+                       "license": "OpenMDW-1.1 (NVIDIA's): "
+                                  "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+                       "models": {"UD-Q3_K_XL": {"about": "Unsloth Dynamic: IQ4_XS / IQ3_XXS / IQ2_XS up and IQ4_NL / "
+                                                          "Q2_0 down experts, 4.05 bits a weight",
+                                                 "download_gb": 65.8, "ram_gb": 62, "arena_gb": 55.6,
+                                                 "vram_beside_gb": 12.3}},
+                       "sha256": {"NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00001-of-00003.gguf":
+                                  (7874568, "b2a570b4fc2e2e0ef3657937d6d4689c5d9647125e5fe22e31426789cf4e02fa"),
+                                  "NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00002-of-00003.gguf":
+                                  (49225290592, "94827cf22f98854a68127fd4a18cca136951d1181bba8c21a7d9dcd6d3c68674"),
+                                  "NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00003-of-00003.gguf":
+                                  (16528375872, "c2245a2faa51dc1aabcb6b58b7c311bc06ebada10345057e106ac94fcfcef8ce")}},
     "gemma4": {"title": "Gemma 4 26B-A4B", "by": "Google; quantized by Unsloth",
                "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
                "about": "on the strata-poly engine too; a 13 GB file, ~18 GB of RAM beside an 8 GB card; a smaller and a "
@@ -1415,7 +1443,8 @@ def verify_sha256(s: Path, size: int, sha: str, own: bool = False) -> None:
 
 # general.architecture of each strata-poly family's GGUFs, the name Engine::open() (src/poly/engine.cpp) picks its
 # code by; the families not listed are qwen35moe
-POLY_GGUF_ARCHS = {"laguna-s": ("laguna",), "laguna-xs": ("laguna",), "gemma4": ("gemma4",)}
+POLY_GGUF_ARCHS = {"laguna-s": ("laguna",), "laguna-xs": ("laguna",), "nemotron-super": ("nemotron_h_moe",),
+                   "gemma4": ("gemma4",)}
 
 
 def gguf_arch(s: Path) -> str:
@@ -4182,6 +4211,7 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
         args += ["--conversation-cache-mib", str(conv)]
     if fam.get("kv"):                                  # the family's KV format (Laguna: q8_0, as it runs)
         args += ["--kv", fam["kv"]]
+    args += list(fam.get("args", []))                 # the family's own (Nemotron 3.5 Super: --no-draft for now)
     if a.vram_reserve_mib is not None:
         args += ["--vram-reserve-mib", str(a.vram_reserve_mib)]
         ok(f"VRAM kept free for other programs: {a.vram_reserve_mib} MiB (--vram-reserve-mib; the expert cache takes "

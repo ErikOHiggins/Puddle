@@ -5,7 +5,8 @@ run config, byte for byte, as the recorded baseline (tools/test_setup_golden.jso
 
 The baseline was recorded again for Puddle's families (phase 1b-1, 2026-11-19: the Qwen engine's families are gone;
 phase 1c: Laguna-S, Laguna-XS and Occamy added; T2, 2026-11-20: Occamy removed; B4, 2026-11-20: Nemotron 3.5 Bolt
-added, the other entries unchanged); record it again only when a default changes on purpose.
+added, the other entries unchanged; phase 2, 2026-11-21: Nemotron 3.5 Super added, the other entries unchanged);
+record it again only when a default changes on purpose.
 
     python -m unittest tools.test_setup_golden
     python tools/test_setup_golden.py --write      (only to record a new baseline on purpose)

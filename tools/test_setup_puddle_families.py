@@ -30,7 +30,7 @@ def arg(cfg, flag):
 
 class Catalog(unittest.TestCase):
     def test_the_families_and_their_order(self):
-        self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "nemotron-bolt", "gemma4"])
+        self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "nemotron-bolt", "nemotron-super", "gemma4"])
         self.assertEqual(list(setup.family_models("nemotron-bolt")), ["24GB"])
         self.assertEqual(list(setup.family_models("laguna-s")), ["UD-Q3_K_XL", "UD-Q4_K_XL", "Q4_K_M"])
         self.assertEqual(list(setup.family_models("laguna-xs")), ["Q4_K_M"])
@@ -80,6 +80,7 @@ class Install(unittest.TestCase):
         want = {"laguna-s": {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1},
                 "laguna-xs": {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1},
                 "nemotron-bolt": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
+                "nemotron-super": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
                 "gemma4": {"temperature": 1.0, "top_p": 0.95, "top_k": 64}}
         self.assertEqual({f: fam.get("sampling") for f, fam in setup.FAMILIES.items()}, want)
         for family, sampling in want.items():

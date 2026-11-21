@@ -1,10 +1,12 @@
-# Nemotron 3.5 Bolt
+# Nemotron 3.5 Bolt and Super
 
 NVIDIA's [Nemotron 3.5 Bolt 74B-A9B 24GB](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF)
-reads text and pictures. It is under the OpenMDW-1.1 license. Puddle runs it on llama.cpp's `llama-server`, which
-setup compiles on your PC, because strata-poly does not run its architecture yet. Puddle's own server stays in front
-of it: the chat template, the tool calls, the thinking, every endpoint and setting are the same as for the other
-models. llama-server only writes the tokens.
+reads text and pictures. It is under the OpenMDW-1.1 license. Setup runs it on llama.cpp's `llama-server`, which it
+compiles on your PC. Puddle's own server stays in front of it: the chat template, the tool calls, the thinking, every
+endpoint and setting are the same as for the other models. llama-server only writes the tokens.
+
+strata-poly runs the architecture itself since phase 2 (`src/poly/nemotron_h.cpp`): Nemotron 3.5 Super is set up on it
+([below](#nemotron-35-super-on-strata-poly)), and Bolt matches llama.cpp on it too, though setup does not offer that yet.
 
 **Status: experimental.** It has run on one machine, echo: with llama-server alone, and through Puddle for its first
 requests ([what was measured](#measured)).
@@ -166,9 +168,45 @@ as a stop, and the token is not shown.
 The tests run without a GPU, against a stand-in for llama-server: `python -m unittest serve.test_llama_server
 serve.test_llama_server_images`.
 
+## Nemotron 3.5 Super on strata-poly
+
+NVIDIA's [Nemotron 3.5 Super VL 120B-A12B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16),
+under the OpenMDW-1.1 license, in [Unsloth](https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF)'s
+UD-Q3_K_XL quantization: Bolt's architecture at its full size. **Status: experimental**, run on echo only.
+
+| | |
+| --- | --- |
+| Layers | 40 Mamba-2, 8 attention and 40 MoE, and an MTP block (89 blocks in the file) |
+| Experts | 512 routed experts a layer, 22 used for each token, in a latent of 1,024; a shared expert |
+| The file | 65,761,541,032 bytes in 3 parts: the routed experts 55.6 GB (IQ4_XS / IQ3_XXS / IQ2_XS up, IQ4_NL / Q2_0 down, 4.05 bits a weight), the rest 7.1 GB, the MTP block 3.1 GB |
+| Context | trained to 1,048,576 tokens; setup offers up to 256K (8,192 bytes of VRAM a token) |
+| Tokenizer | the same Tekken pre-tokenizer as Bolt's (`tekken` in this GGUF) |
+
+`./setup.sh --setup --family nemotron-super` installs it like the other strata-poly models: the experts that do not
+fit the cards stay in RAM, about 47 GB beside two 16 GB cards and 62 GB beside one by setup's estimate. The engine
+starts with `--no-draft`: the MTP block, which guesses the next tokens ahead, does not run yet, and neither do pictures
+(the image encoder Puddle builds has no code for this model's yet).
+
+**Measured** on echo (two RTX 5060 Ti 16 GB, i9-9900K, 128 GB of DDR4-3200, Linux), 2026-11-21, with
+[`tools/poly_parity.py`](../tools/poly_parity.py): llama.cpp `08c252e22` (llama-server) answers each prompt greedily,
+strata-poly is made to write the same answer, and each step's first choice is compared.
+
+| Prompt | Super: first choices the same | Bolt: first choices the same |
+| --- | ---: | ---: |
+| short (5 tokens) | 32 of 32 | 63 of 64 (the other a near tie) |
+| code (22 tokens) | 32 of 32 | 64 of 64 |
+| chat (11 tokens) | 49 of 49 | 48 of 48 |
+| doc (2,109 tokens) | 64 of 64 | 23 of 23 |
+
+A first look at Super's speed in those runs, not a benchmark: with 6,647 of its 20,480 experts in VRAM (17.1 GiB),
+it wrote 13.7 tokens/s after a short prompt, with the expert cache held still, no guesses and every launch made anew.
+The CPU's experts took 50 to 54 ms of each token.
+
 ## Not there yet
 
-- strata-poly running `nemotron_h_moe` itself, which would retire llama-server here.
+- Bolt on strata-poly in setup (it matches llama.cpp there, above), and Super's MTP block and pictures.
+- strata-poly's speed on both: the recorded launches (CUDA graphs), guesses, and a same-day measurement against
+  llama-server on the same files.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not
   download or use it.
 - `--vram-reserve-mib`, several requests at once, and replicas: llama-server is run with one slot.
