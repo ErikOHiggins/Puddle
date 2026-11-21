@@ -363,7 +363,11 @@ void NemotronH::layer_head(Layer& L, int il, int n) {
     dbg("attn_norm", il, xr_, n_embd_);
     if (e_embd_ != n_embd_) {
         lin(B.lat_down, xr_, xn_, n, xrq_);
-        kernels::native_quantize_q8_1(xn_, xq_, e_embd_, n, st_);
+        // the experts' rows quantized, 32 at a time (native_quantize_q8_1()'s most): a prompt batch has up to rows_
+        const size_t row = kernels::native_q8_1_bytes(e_embd_);
+        for (int at = 0; at < n; at += 32)
+            kernels::native_quantize_q8_1(xn_ + (size_t) at * e_embd_, (uint8_t*) xq_ + (size_t) at * row, e_embd_,
+                                          std::min(32, n - at), st_);
     } else {
         ck(cudaMemcpyAsync(xn_, xr_, (size_t) n * n_embd_ * sizeof(float), cudaMemcpyDeviceToDevice, cs(st_)), "MoE");
         ck(cudaMemcpyAsync(xq_, xrq_, (size_t) n * kernels::native_q8_1_bytes(n_embd_), cudaMemcpyDeviceToDevice,
