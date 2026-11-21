@@ -3669,12 +3669,16 @@ class Service:
         # an image's marker from the same text in a message: the first ones are the images (prepare()).
         self.image_marks = ("<|image|>", None, ("<|image>", "<image|>")) if self.call_format == "gemma" else \
             (IMAGE_PAD, VISION_START if VISION_START in getattr(self.template, "source", VISION_START) else None, None)
-        # Nemotron 3.5's template writes <image> for a picture (its own token), and llama-server's mtmd puts <img> and
-        # </img> around the picture's rows itself; a literal <image> in a message stays text (literal_tags)
+        # Nemotron 3.5's template writes <image> for a picture (its own token).  llama-server's mtmd puts <img> and
+        # </img> around the picture's rows itself; for strata-poly they go around them here, as mtmd puts them (its
+        # nemotron_omni img_beg / img_end).  A literal <image> in a message stays text (literal_tags).
         source = getattr(self.template, "source", "") or ""
         if self.call_format != "gemma" and "'<image>'" in source and IMAGE_PAD not in source and \
                 len(tokenizer.encode("<image>", parse_special=True)) == 1:
-            self.image_marks = ("<image>", None, None)
+            around = None if isinstance(self.engine, LlamaServerEngine) else ("<img>", "</img>")
+            if around and not all(len(tokenizer.encode(t, parse_special=True)) == 1 for t in around):
+                around = None
+            self.image_marks = ("<image>", None, around)
         # #567: a prompt re-encodes only what follows the last special token it shares with a recent prompt (the
         # same ids as a full encode: tools/strata_tokenizer.py PromptEncoder).  Tokenizers without resume points
         # encode in full.

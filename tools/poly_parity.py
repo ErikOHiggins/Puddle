@@ -9,6 +9,10 @@
 3. per prompt: how many steps the two engines' first choices agree, the first step where they do not (and whether it
    is a near tie: either engine's two likeliest within 0.1), and KL(llama.cpp || strata-poly) over llama.cpp's 10
 
+With --image (and --mmproj), a "picture" prompt too: llama-server reads the picture through its own mtmd, from its
+media marker and the picture's file; strata-poly reads the same text with <img>, strata-vision's rows of the picture
+(engine-poly/ by default, --vision) and </img>, as mtmd puts them, and the two prompts' token counts are compared.
+
 The server must not be running (both engines need the cards).  The report also goes to --out/parity-<time>.txt, the
 raw steps to parity-<time>.json.  Exit 0 when every step's first choice agrees or parts at a near tie; 1 otherwise;
 2 when a run fails.
@@ -16,6 +20,7 @@ raw steps to parity-<time>.json.  Exit 0 when every step's first choice agrees o
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import math
 import os
@@ -90,6 +95,31 @@ def lib_env(dirs: list[str]) -> dict:
     return env
 
 
+PICTURE = ("Here is a picture:\n", "\nWhat does it show? Describe it in detail.")   # the text before it, and after it
+
+
+def encode_picture(vision: str, mmproj: str, gguf: str, image: str, out: Path, env: dict) -> int:
+    """The picture's rows from strata-vision (one process, on the card, at the encoder file's own limits): its rows."""
+    p = subprocess.Popen([vision, "--mmproj", mmproj, "--model", gguf, "--gpu"], stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+    try:
+        ready = p.stdout.readline().strip()
+        if not ready.startswith("READY"):
+            raise RuntimeError(f"strata-vision did not start: {ready or p.stderr.read()[-800:]}")
+        p.stdin.write(f"ENC {Path(image).resolve()} {out.resolve()}\n")
+        p.stdin.flush()
+        reply = p.stdout.readline().strip()
+        p.stdin.write("QUIT\n")
+        p.stdin.flush()
+        p.wait(timeout=120)
+    finally:
+        if p.poll() is None:
+            p.kill()
+    if not reply.startswith("OK "):
+        raise RuntimeError(f"strata-vision: {reply}")
+    return int(reply.split()[1])
+
+
 def post(base: str, path: str, body: dict, timeout: float = 3600) -> dict:
     req = urllib.request.Request(base + path, data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
@@ -110,6 +140,10 @@ def main(argv=None) -> int:
     ap.add_argument("--llama-args", default="", help="more llama-server options, as one string")
     ap.add_argument("--lib-dirs", default="", help="library folders for both engines, a path list (default: the "
                     "toolkit's, from engine-poly/BUILD.json)")
+    ap.add_argument("--image", help="a picture: adds the \"picture\" prompt (needs --mmproj)")
+    ap.add_argument("--mmproj", help="the model's image encoder file, for both engines")
+    ap.add_argument("--vision", default=str(ROOT / "engine-poly" / ("strata-vision.exe" if os.name == "nt" else
+                                                                    "strata-vision")))
     ap.add_argument("--out", default=str(ROOT / "parity-test"))
     # an option's value that starts with -- is taken by argparse for an option: join it to its flag
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -118,6 +152,8 @@ def main(argv=None) -> int:
             argv[i:i + 2] = [argv[i] + "=" + argv[i + 1]]
             break
     a = ap.parse_args(argv)
+    if a.image and not a.mmproj:
+        ap.error("--image needs --mmproj")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
@@ -137,19 +173,31 @@ def main(argv=None) -> int:
             dirs = []
     env = lib_env(dirs)
     prompts = dict(PROMPTS, doc=doc_prompt())
+    if a.image:
+        prompts["picture"] = PICTURE
     if a.only:
         prompts = {k: v for k, v in prompts.items() if k in a.only.split(",")}
     say("== strata-poly:", a.engine, "| options beside the defaults:", a.ours_args or "(none)")
     say("== the model:", a.gguf)
 
+    # 0) the picture's rows, before llama-server takes the cards (its media marker is its own each start: read below)
+    n_rows, rows_file = 0, out / f"picture-{stamp}.sve"
+    if a.image:
+        try:
+            n_rows = encode_picture(a.vision, a.mmproj, a.gguf, a.image, rows_file, env)
+        except (RuntimeError, OSError, subprocess.TimeoutExpired) as e:
+            say(f"   the picture could not be encoded: {e}")
+            return 2
+        say(f"== strata-vision: {a.image} is {n_rows} rows")
+
     # 1) llama.cpp
     cmd = [a.llama_server, "-m", a.gguf, "-c", str(a.context), "-np", "1", "--host", "127.0.0.1", "--port",
-           str(a.port), "--no-webui"] + a.llama_args.split()
+           str(a.port), "--no-webui"] + (["--mmproj", a.mmproj] if a.mmproj else []) + a.llama_args.split()
     say("== llama-server:", " ".join(cmd))
     slog = open(out / f"llama-server-{stamp}.log", "w", encoding="utf-8")
     srv = subprocess.Popen(cmd, stdout=slog, stderr=subprocess.STDOUT, env=env)
     base = f"http://127.0.0.1:{a.port}"
-    ids, ref = {}, {}
+    ids, ref, pictures = {}, {}, {}
     try:
         t0 = time.time()
         while True:
@@ -167,9 +215,27 @@ def main(argv=None) -> int:
                 return 2
             time.sleep(2)
         say(f"   up in {time.time() - t0:.0f} s")
+        marker = None
         for k, text in prompts.items():
-            ids[k] = post(base, "/tokenize", {"content": text, "add_special": True, "parse_special": True})["tokens"]
-            body = {"prompt": ids[k], "n_predict": a.n, "temperature": 0.0, "top_k": 1, "top_p": 1.0, "min_p": 0.0,
+            if k == "picture":
+                # the same tokens for strata-poly: the text, <img>, a pad a row of the picture, </img>, the text
+                with urllib.request.urlopen(base + "/props", timeout=30) as r:
+                    marker = json.loads(r.read()).get("media_marker")
+                tok = lambda t, first: post(base, "/tokenize", {"content": t, "add_special": first,   # noqa: E731
+                                                                "parse_special": True})["tokens"]
+                img, img_end, pad = tok("<img>", False), tok("</img>", False), tok("<image>", False)
+                if not (marker and len(img) == len(img_end) == len(pad) == 1):
+                    say("   the picture prompt needs llama-server's media marker and single <img>, </img>, <image>")
+                    return 2
+                ids[k] = tok(text[0], True) + img + pad * n_rows + img_end + tok(text[1], False)
+                pictures[k] = (rows_file, pad[0], n_rows)
+                picture = base64.b64encode(Path(a.image).read_bytes()).decode("ascii")
+                prompt = {"prompt_string": text[0] + marker + text[1], "multimodal_data": [picture]}
+            else:
+                ids[k] = post(base, "/tokenize", {"content": text, "add_special": True,
+                                                  "parse_special": True})["tokens"]
+                prompt = ids[k]
+            body = {"prompt": prompt, "n_predict": a.n, "temperature": 0.0, "top_k": 1, "top_p": 1.0, "min_p": 0.0,
                     "repeat_penalty": 1.0, "presence_penalty": 0.0, "frequency_penalty": 0.0, "dry_multiplier": 0.0,
                     "n_probs": TOP, "post_sampling_probs": False, "cache_prompt": False, "return_tokens": True}
             t1 = time.time()
@@ -180,7 +246,11 @@ def main(argv=None) -> int:
                 steps.append([(t["id"], math.exp(t["logprob"]) if "logprob" in t else t["prob"]) for t in tops])
             toks = res.get("tokens") or [s[0][0] for s in steps if s]
             ref[k] = {"tokens": toks, "tops": steps}
-            say(f"   llama.cpp {k}: {len(ids[k])} prompt tokens, {len(toks)} written in {time.time() - t1:.0f} s")
+            read = res.get("tokens_evaluated")
+            say(f"   llama.cpp {k}: {len(ids[k])} prompt tokens, {len(toks)} written in {time.time() - t1:.0f} s"
+                + (f"; the picture's rows: {pictures[k][2]}; llama-server read {read} prompt tokens, strata-poly's "
+                   f"prompt has {len(ids[k])} ({'the same' if read == len(ids[k]) else 'NOT the same'})"
+                   if k in pictures else ""))
     finally:
         srv.terminate()
         try:
@@ -196,6 +266,8 @@ def main(argv=None) -> int:
         cmd = [a.engine, "--model", a.gguf, "--tokens", ",".join(map(str, ids[k])), "--follow",
                ",".join(map(str, follow)), "--max-new", str(len(follow)), "--top-probs", str(TOP), "--max-context",
                str(a.context), "--layer-split", "auto", "--window", "1"] + a.ours_args.split()
+        if k in pictures:
+            cmd += ["--images", str(pictures[k][0]), "--image-pad", str(pictures[k][1])]
         t1 = time.time()
         r = subprocess.run(cmd, capture_output=True, text=True, env=dict(env, STRATA_FREEZE_EXPERTS="1"))
         (out / f"strata-{stamp}.log").open("a", encoding="utf-8").write(f"== {k}\n{r.stderr}")

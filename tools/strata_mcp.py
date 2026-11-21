@@ -99,10 +99,11 @@ FALLBACK_FAMILIES = {'laguna-s': {'title': 'Laguna S 2.1',
                                        'vram_need_gb': 30}}},
  'nemotron-super': {'title': 'Nemotron 3.5 Super',
                     'by': 'NVIDIA; quantized by Unsloth',
-                    'about': '120B-A12B; a 66 GB file, ~62 GB of RAM beside a 16 GB card; runs on 2x RTX 5060 Ti '
-                             '16 GB on the strata-poly engine, without pictures for now',
+                    'about': '120B-A12B, reads pictures; a 66 GB file, ~62 GB of RAM beside a 16 GB card; runs on '
+                             '2x RTX 5060 Ti 16 GB on the strata-poly engine',
                     'tag': 'nemotron-super-',
                     'engine': 'poly',
+                    'vision': True,
                     'experimental': True,
                     'models': {'UD-Q3_K_XL': {'about': 'Unsloth Dynamic: IQ4_XS / IQ3_XXS / IQ2_XS up and IQ4_NL / '
                                                        'Q2_0 down experts, 4.05 bits a weight',

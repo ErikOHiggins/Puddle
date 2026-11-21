@@ -20,14 +20,14 @@ Puddle.
 | **[Laguna-S 2.1](https://huggingface.co/poolside/Laguna-S-2.1)** | poolside; quantized by Unsloth | UD-Q3_K_XL (54 GB, the default), UD-Q4_K_XL (73 GB), poolside's own Q4_K_M (96 GB) | no |
 | **[Laguna-XS 2.1](https://huggingface.co/poolside/Laguna-XS-2.1)** | poolside | Q4_K_M (20 GB) | no |
 | **[Nemotron 3.5 Bolt 74B-A9B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF)** | NVIDIA | NVIDIA's own 2-bit file (22 GB) | yes |
-| **[Nemotron 3.5 Super 120B-A12B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16)** | NVIDIA; quantized by Unsloth | UD-Q3_K_XL (66 GB) | not yet |
+| **[Nemotron 3.5 Super 120B-A12B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16)** | NVIDIA; quantized by Unsloth | UD-Q3_K_XL (66 GB) | yes, not yet checked |
 | **[Gemma 4 26B-A4B](https://huggingface.co/google/gemma-4-26B-A4B-it)** | Google; quantized by Unsloth | UD-Q3_K_M (13 GB, the default), UD-Q2_K_XL, UD-Q4_K_M, QAT-UD-Q4_K_XL | yes |
 
 All five are experimental. poolside's Laguna-S Q4_K_M keeps 8 of its 47 expert layers in BF16, which run on the
 processor every token, and it has a 1M-token rope where Unsloth's files have 262K; it has not been run yet.
 Nemotron 3.5 Bolt runs on llama.cpp's `llama-server` for now, which setup compiles, with Puddle's server in front of
-it. Nemotron 3.5 Super runs on strata-poly; its MTP block, which guesses the next tokens ahead, and its pictures do not
-run yet ([docs/NEMOTRON.md](docs/NEMOTRON.md)).
+it. Nemotron 3.5 Super runs on strata-poly; its MTP block, which guesses the next tokens ahead, does not run yet, and
+its pictures have not been checked against llama.cpp yet ([docs/NEMOTRON.md](docs/NEMOTRON.md)).
 
 Which models Puddle offers: open-weight models whose license puts no restriction on their use, OpenMDW first (both
 Lagunas and both Nemotrons are OpenMDW-1.1), with Apache 2.0 where a gap needs filling (Gemma 4, which reads

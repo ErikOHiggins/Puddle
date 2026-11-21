@@ -184,8 +184,13 @@ UD-Q3_K_XL quantization: Bolt's architecture at its full size. **Status: experim
 
 `./setup.sh --setup --family nemotron-super` installs it like the other strata-poly models: the experts that do not
 fit the cards stay in RAM, about 47 GB beside two 16 GB cards and 62 GB beside one by setup's estimate. The engine
-starts with `--no-draft`: the MTP block, which guesses the next tokens ahead, does not run yet, and neither do pictures
-(the image encoder Puddle builds has no code for this model's yet).
+starts with `--no-draft`: the MTP block, which guesses the next tokens ahead, does not run yet. Pictures go through
+Puddle's image encoder (strata-vision), built from llama.cpp `08c252e22`'s mtmd, which has this encoder
+(`nemotron_omni`, the 1.7 GB `mmproj-BF16.gguf`, at its own limits: up to 3,407,872 pixels, as llama-server reads
+Bolt's). The server puts `<img>` and `</img>` around the picture's rows, as mtmd does; strata-poly reads them as text
+(causal, no rotation), so a picture may take more than one prompt batch. `--vision gpu` in setup turns them on. Not yet
+checked against llama-server: [`tools/poly_parity.py`](../tools/poly_parity.py) `--image <picture> --mmproj <file>`
+compares the two on one picture.
 
 **Measured** on echo (two RTX 5060 Ti 16 GB, i9-9900K, 128 GB of DDR4-3200, Linux), 2026-11-21, with
 [`tools/poly_parity.py`](../tools/poly_parity.py): llama.cpp `08c252e22` (llama-server) answers each prompt greedily,
@@ -204,7 +209,8 @@ The CPU's experts took 50 to 54 ms of each token.
 
 ## Not there yet
 
-- Bolt on strata-poly in setup (it matches llama.cpp there, above), and Super's MTP block and pictures.
+- Bolt on strata-poly in setup (it matches llama.cpp there, above), Super's MTP block, and a check of Super's
+  pictures against llama-server.
 - strata-poly's speed on both: the recorded launches (CUDA graphs), guesses, and a same-day measurement against
   llama-server on the same files.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not

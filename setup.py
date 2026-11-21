@@ -164,9 +164,10 @@ def ms_meta(repo: str, path: str):
 
 LLAMA_CPP_COMMIT = "3cf03257f219afbe7334045ff7c6a06ac68c627d"
 LLAMA_CPP_ZIP = f"https://github.com/ggml-org/llama.cpp/archive/{LLAMA_CPP_COMMIT}.zip"
-# The image encoder's own llama.cpp: MiniCPM-V 4.7's mtmd is newer than the engines' pin, and the engines stay on
-# the Strata project's pin until it moves; only strata-vision builds from this one (a second checkout, like #14 suggests).
-VISION_LLAMA_CPP_COMMIT = "69f201a2051ea9b9e9b50c3cc56afd9e2ae64414"
+# The image encoder's own llama.cpp, newer than the engines' pin; only strata-vision builds from it (a second checkout,
+# like #14 suggests).  llama-server's commit (LLAMA_SERVER_COMMIT): its mtmd has the Nemotrons' encoder (nemotron_omni),
+# and the two share one checkout.  Before phase 2 it was 69f201a2 (MiniCPM-V 4.7's).
+VISION_LLAMA_CPP_COMMIT = "08c252e221759e0f69e80f0450b295c92d2344e1"
 VISION_LLAMA_CPP_ZIP = f"https://github.com/ggml-org/llama.cpp/archive/{VISION_LLAMA_CPP_COMMIT}.zip"
 # llama.cpp's llama-server, the engine of a family with "engine": "llama-server" (Nemotron 3.5 Bolt, until strata-poly
 # runs the Mamba-2 hybrids): its own newer checkout (nemotron_h_moe, NVFP4, mtmd's nemotron_omni), the commit echo ran
@@ -282,16 +283,21 @@ FAMILIES = {
     # Nemotron 3.5 Super VL 120B-A12B (NVIDIA; quantized by Unsloth): Bolt's architecture (nemotron_h_moe: Mamba-2,
     # attention and LatentMoE layers) at its full size, 512 experts a layer of which 22 are used, and an MTP block.  It
     # runs on strata-poly (src/poly/nemotron_h.cpp); on echo its first choices were llama.cpp's at 177 of 177 steps
-    # (tools/poly_parity.py, 2026-11-21).  Its MTP block and pictures do not run yet: the engine starts with --no-draft.
+    # (tools/poly_parity.py, 2026-11-21).  Its MTP block does not run yet: the engine starts with --no-draft.  Pictures:
+    # strata-vision (llama.cpp 08c252e22's mtmd, nemotron_omni) at the encoder file's own limits (vision_max_tokens 0:
+    # up to 3,407,872 pixels, as llama-server reads Bolt's); vision_vram_gb is an estimate (the weights 1.7 GB and the
+    # work buffers at the largest picture), not measured yet.
     # vram_beside_gb: from echo's log, 17.1 GiB of experts on 2x RTX 5060 Ti 16 GB at an 8K context, the estimate's way.
     "nemotron-super": {"title": "Nemotron 3.5 Super", "by": "NVIDIA; quantized by Unsloth",
                        "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                       "about": "120B-A12B; a 66 GB file, ~62 GB of RAM beside a 16 GB card; runs on 2x RTX 5060 Ti 16 GB "
-                                "on the strata-poly engine, without pictures for now",
+                       "about": "120B-A12B, reads pictures; a 66 GB file, ~62 GB of RAM beside a 16 GB card; runs on 2x "
+                                "RTX 5060 Ti 16 GB on the strata-poly engine",
                        "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"),
                        "file": "{q}/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-{q}-0000{i}-of-00003.gguf", "shards": 3,
-                       "tag": "nemotron-super-", "name": "nemotron-3.5-super", "engine": "poly", "experimental": True,
-                       "metal": False, "ran_on_gb": 16, "row_bytes": 8192,
+                       "tag": "nemotron-super-", "name": "nemotron-3.5-super", "engine": "poly", "vision": True,
+                       "experimental": True, "metal": False, "ran_on_gb": 16, "row_bytes": 8192,
+                       "mmproj_hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"), "mmproj": "mmproj-BF16.gguf",
+                       "vision_gb": 1.7, "vision_vram_gb": 3.5, "vision_max_tokens": 0,
                        "contexts": [8192, 32768, 65536, 131072, 262144],
                        "args": ["--no-draft"],
                        "license": "OpenMDW-1.1 (NVIDIA's): "
@@ -305,7 +311,9 @@ FAMILIES = {
                                   "NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00002-of-00003.gguf":
                                   (49225290592, "94827cf22f98854a68127fd4a18cca136951d1181bba8c21a7d9dcd6d3c68674"),
                                   "NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00003-of-00003.gguf":
-                                  (16528375872, "c2245a2faa51dc1aabcb6b58b7c311bc06ebada10345057e106ac94fcfcef8ce")}},
+                                  (16528375872, "c2245a2faa51dc1aabcb6b58b7c311bc06ebada10345057e106ac94fcfcef8ce"),
+                                  "mmproj-BF16.gguf":
+                                  (1733695840, "9c09381a5744d0ea9a30048c94922f6f25ee0d63842de9c45779eca4fb5924d9")}},
     "gemma4": {"title": "Gemma 4 26B-A4B", "by": "Google; quantized by Unsloth",
                "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
                "about": "on the strata-poly engine too; a 13 GB file, ~18 GB of RAM beside an 8 GB card; a smaller and a "
@@ -2563,6 +2571,12 @@ def source_hash(parts) -> str:
     return h.hexdigest()[:16]
 
 
+def vision_hash() -> str:
+    """The image encoder's fingerprint in engine/BUILD.json: its source and the llama.cpp it is built from
+    (VISION_LLAMA_CPP_COMMIT), so a new pin compiles it again."""
+    return hashlib.sha256((VISION_LLAMA_CPP_COMMIT + source_hash(VISION_SOURCES)).encode()).hexdigest()[:16]
+
+
 def host_compiler_defs(cuda: bool) -> list:
     """CC / CXX / CUDAHOSTCXX pick the host compilers of a build - as -D definitions, so an existing build folder
     takes them too (the environment reaches CMake only on a folder's first configure, which is why CXX=g++-14 alone
@@ -3220,11 +3234,12 @@ def start(cfg_path: Path, port: int | None, gpu: int | list | None = None, open_
     return subprocess.call(cmd)
 
 
-def vision_tokens(asked: int | None, vision: str, earlier: Path | None) -> int:
+def vision_tokens(asked: int | None, vision: str, earlier: Path | None, own: int | None = None) -> int:
     """#625: the most image tokens a picture becomes (the config's vision.max_tokens): --vision-tokens N, else what an
-    earlier config of this model chose for the same encoder device (a setup run again keeps it), else the device's
-    default (VISION).  More is allowed with a note on the time it takes: setup recommends, it does not cap."""
-    default = VISION[vision]["max_tokens"]
+    earlier config of this model chose for the same encoder device (a setup run again keeps it), else the family's own
+    default (`own`; 0: the encoder file's own limits, no --max-tokens) or the device's (VISION).  More is allowed with
+    a note on the time it takes: setup recommends, it does not cap."""
+    default = VISION[vision]["max_tokens"] if own is None else own
     if asked is None and earlier is not None:
         try:
             v = json.loads(earlier.read_text(encoding="utf-8-sig")).get("vision")
@@ -3400,7 +3415,7 @@ def build_engine_poly(gpu, yes, llama, vision="none", toolkit=13, portable=False
     eng.mkdir(exist_ok=True)
     stamp = eng / "BUILD.json"
     meta = json.loads(stamp.read_text()) if stamp.exists() else {}
-    src, vsrc = source_hash(ENGINE_SOURCES), source_hash(VISION_SOURCES)
+    src, vsrc = source_hash(ENGINE_SOURCES), vision_hash()
     cards = {int(x) for x in gpu.get("archs", [gpu["arch"]])}
     built = {int(x) for x in meta.get("archs", [])}
     same = int(meta.get("toolkit", 13)) == toolkit
@@ -3644,7 +3659,7 @@ def update_poly_engine(cfg: dict, yes=False, cfg_path: Path | None = None) -> No
         changed = renamed
         fits = set(gpu["archs"]) <= {int(x) for x in meta.get("archs", [])}
         if not (meta.get("src") == source_hash(ENGINE_SOURCES) and (eng / POLY_EXE).exists() and fits
-                and (vision == "none" or meta.get("vision_src") == source_hash(VISION_SOURCES))):
+                and (vision == "none" or meta.get("vision_src") == vision_hash())):
             build_engine_poly(gpu, yes, get_llama_cpp(), vision, int(meta.get("toolkit", 13)),
                               bool(meta.get("portable")))
             # a ready-made engine loads CUDA from pip, one compiled here from the toolkit it was compiled with
@@ -4260,7 +4275,8 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
     earlier = adopted if adopted is not None and adopted.name == cfg_path.name else None
     if vision != "none":
         # the most rows a picture becomes: one of this engine's prompt batches (1,024) holds a picture of Gemma 4's
-        vt = vision_tokens(a.vision_tokens, vision, cfg_path if cfg_path.is_file() else earlier)
+        vt = vision_tokens(a.vision_tokens, vision, cfg_path if cfg_path.is_file() else earlier,
+                           fam.get("vision_max_tokens"))
         if vt > fam.get("vision_most", vt):
             warn(f"--vision-tokens {vt}: {title} reads a picture in one prompt batch, {fam['vision_most']} tokens "
                  "unless the engine is started with a larger --prompt-batch; a picture with more is refused")

@@ -94,6 +94,43 @@ class PictureTokens(unittest.TestCase):
             self.assertIsNone(MT.mmproj_params(Path(d) / "missing.gguf"))
 
 
+class ThroughStrataPoly(unittest.TestCase):
+    """Nemotron on strata-poly (phase 2): the picture's rows from strata-vision between <img> and </img>, which the
+    server puts around them as llama.cpp's mtmd does (llama-server puts them there itself)."""
+
+    class FakeVision:
+        def __init__(self, d):
+            self.dir = Path(d)
+            self.rows = self.dir / "img.sve"
+            self.rows.write_bytes(b"rows")
+
+        def encode(self, source):
+            return self.rows, 3
+
+    def test_the_rows_between_img_and_img_end(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "template.jinja"
+            path.write_text(TEMPLATE, encoding="utf-8")
+
+            class Asked(S.MockEngine):
+                def generate(self, ids, max_new, sampling, cancel, embeddings=None):
+                    self.asked = (S.StrataEngine.sampling_keys(sampling), embeddings)
+                    yield from super().generate(ids, max_new, sampling, cancel, embeddings)
+
+            tok = tokenizer()
+            svc = S.Service(Asked(tok, "a scan"), tok, ChatTemplate(path), vision=self.FakeVision(d))
+            self.assertEqual(svc.image_marks, ("<image>", None, ("<img>", "</img>")))
+            msgs = [{"role": "user", "content": [{"type": "text", "text": "Read this:"},
+                                                 {"type": "image", "source": "x.png"}]}]
+            ids, _, _ = svc.prepare(msgs, None, {})
+            at = ids.index(IMG)
+            self.assertEqual(ids[at:at + 5], [IMG, IMAGE, IMAGE, IMAGE, IMG_END])
+            self.assertEqual((ids.count(IMAGE), svc.embeddings.pad), (3, IMAGE))
+            rows = svc.embeddings.path
+            list(svc.run(ids, False, None, 8, {}, threading.Event()))
+            self.assertEqual(svc.engine.asked, (f" image_pad={IMAGE}", rows))
+
+
 class ThroughLlamaServer(unittest.TestCase):
     def setUp(self):
         d = tempfile.TemporaryDirectory()

@@ -23,6 +23,9 @@ namespace strata::poly {
 
 class NemotronH final : public Engine {
 public:
+    /// Its pictures: strata-vision's rows (llama.cpp's mtmd, nemotron_omni) where the server put them, between <img> and
+    /// </img>.  They are read as text is (causal, no rotation), so a picture may take several calls (Engine::whole()).
+    bool sees() const override { return true; }
     size_t card_row_bytes() const override;
     void save_card_rows(int64_t first, int64_t n, uint8_t* dst) override;
     void load_card_rows(const uint8_t* src, int64_t from, int64_t count, int64_t first, int64_t n) override;
