@@ -289,7 +289,7 @@ if(STRATA_NATIVE_EXPERTS AND STRATA_ENABLE_CUDA)
   endif()
 endif()
 
-# ---- strata-poly: the engine (qwen35moe, gemma4, laguna), read from the model's GGUF ----
+# ---- strata-poly: the engine (qwen35moe, gemma4, laguna, nemotron_h_moe), read from the model's GGUF ----
 #
 # It takes the decode products from strata_kernels, the prompt products from llama.cpp's MMQ kernels
 # (strata_poly_mmq) and the CPU experts' dot products from ggml-cpu.  On HIP it is the same CUDA-shaped code through
@@ -364,16 +364,16 @@ if(STRATA_NATIVE_EXPERTS AND (STRATA_ENABLE_CUDA OR STRATA_ENABLE_HIP))
     set_tests_properties(poly_gdn_mma_test PROPERTIES SKIP_RETURN_CODE 77)
     # Optional model/state check; run by hand with an MTP GGUF and frozen prompt IDs.
     add_executable(poly_gdn_mma_state_test src/poly/gdn_mma_state_test.cpp src/poly/engine.cpp
-                   src/poly/qwen35.cpp src/poly/gemma4.cpp src/poly/laguna.cpp src/poly/cpu_experts.cpp
-                   src/poly/kernels.cu src/core/conversation_memory.cpp)
+                   src/poly/qwen35.cpp src/poly/gemma4.cpp src/poly/laguna.cpp src/poly/nemotron_h.cpp
+                   src/poly/cpu_experts.cpp src/poly/kernels.cu src/poly/mamba2.cu src/core/conversation_memory.cpp)
     target_include_directories(poly_gdn_mma_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${_strata_gpu_include_directories})
     target_link_libraries(poly_gdn_mma_state_test PRIVATE strata_poly_mmq strata_kernels strata_spec ggml-cpu ggml-base
                          ${_strata_gpu_blas_target} ${_strata_gpu_runtime_target} CUDA::cuda_driver Threads::Threads)
   endif()
 
   add_executable(strata-poly src/poly/main.cpp src/poly/engine.cpp src/poly/qwen35.cpp src/poly/gemma4.cpp
-                            src/poly/laguna.cpp src/poly/cpu_experts.cpp src/poly/kernels.cu src/poly/spill.cpp
-                            src/core/conversation_memory.cpp)
+                            src/poly/laguna.cpp src/poly/nemotron_h.cpp src/poly/cpu_experts.cpp src/poly/kernels.cu
+                            src/poly/mamba2.cu src/poly/spill.cpp src/core/conversation_memory.cpp)
   target_include_directories(strata-poly PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${_strata_gpu_include_directories})
   # the driver's virtual memory calls: the attention caches grow with the conversation; on HIP they are HIP's
   # memory management calls, which the HIP runtime itself provides (hip_compat/cuda.h)
@@ -397,7 +397,8 @@ if(STRATA_NATIVE_EXPERTS AND (STRATA_ENABLE_CUDA OR STRATA_ENABLE_HIP))
   # poly_draft_race_test MODEL.gguf [RUNS] [LAYER_SPLIT]
   add_executable(poly_draft_race_test src/poly/draft_race_test.cpp src/poly/engine.cpp
                                       src/poly/qwen35.cpp src/poly/gemma4.cpp
-                                      src/poly/laguna.cpp src/poly/cpu_experts.cpp src/poly/kernels.cu
+                                      src/poly/laguna.cpp src/poly/nemotron_h.cpp src/poly/cpu_experts.cpp
+                                      src/poly/kernels.cu src/poly/mamba2.cu
                                       src/core/conversation_memory.cpp)
   target_include_directories(poly_draft_race_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
                                                          ${_strata_gpu_include_directories})

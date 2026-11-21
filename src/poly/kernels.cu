@@ -360,6 +360,14 @@ __global__ void swiglu_clamp_rows_kernel(const float* __restrict__ gate_up, floa
     out[size_t(blockIdx.y) * n + i] = g / (1.0f + expf(-g)) * u;
 }
 
+__global__ void spread_rows_kernel(const float* __restrict__ x, int n, float* __restrict__ y, int stride, int row0,
+                                   float fill) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= stride) return;
+    const size_t r = size_t(row0) + blockIdx.y;
+    y[r * stride + i] = i < n ? x[r * n + i] : fill;
+}
+
 // relu(x)^2 as ggml's relu then sqr: a value below 0 is 0
 __global__ void relu2_rows_kernel(const float* __restrict__ up, float* __restrict__ out, int n, ExpertScales s) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -2239,6 +2247,12 @@ void swiglu_clamp_rows(const float* gate_up, float* out, int n, int rows, float 
                        const ExpertScales* scales) {
     swiglu_clamp_rows_kernel<<<dim3(grid(n, 256), rows), 256, 0, cs(stream)>>>(gate_up, out, n, limit,
                                                                                 scales ? *scales : ExpertScales{});
+}
+
+void spread_rows(const float* x, int n, float* y, int stride, int rows, float fill, void* stream) {
+    for (int r = 0; r < rows; r += 65535)
+        spread_rows_kernel<<<dim3(grid(stride, 256), std::min(65535, rows - r)), 256, 0, cs(stream)>>>(
+            x, n, y, stride, r, fill);
 }
 
 void relu2_rows(const float* up, float* out, int n, int rows, void* stream, const ExpertScales* scales) {

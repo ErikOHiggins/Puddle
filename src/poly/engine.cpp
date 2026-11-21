@@ -6,6 +6,7 @@
 #include "gemma4.hpp"
 #if !defined(STRATA_GPU_METAL)
 #include "laguna.hpp"   // CUDA and HIP: its YaRN turn and softplus gate have no Metal kernels yet
+#include "nemotron_h.hpp"   // CUDA and HIP: the Mamba-2 kernels (mamba2.cu) have no Metal ones
 #endif
 #include "mmq.hpp"
 #include "qwen35.hpp"
@@ -1660,6 +1661,7 @@ std::unique_ptr<Engine> Engine::open(const Options& o) {
         if (name == "gemma4") return std::make_unique<Gemma4>();
 #if !defined(STRATA_GPU_METAL)
         if (name == "laguna") return std::make_unique<Laguna>();
+        if (name == "nemotron_h_moe") return std::make_unique<NemotronH>();
 #endif
         throw std::runtime_error(o.model + " is a '" + name + "' model, which this engine does not run");
     };

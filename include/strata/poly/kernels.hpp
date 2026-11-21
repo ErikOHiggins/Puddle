@@ -133,6 +133,9 @@ void expert_weights(float* w, const float* scale, const int32_t* ids, int rows, 
 /// Throws std::invalid_argument past 512 experts.
 void route_rows(const float* logits, int n_expert, int n_used, int rows, int gate, float in_scale, const float* bias,
                 const float* escale, bool norm, float w_scale, int32_t* ids, float* w, void* stream);
+/// y's rows of `stride` values from x's rows of n (n <= stride), the rest of each row `fill`: a router's scores of a
+/// layer with fewer experts than the model's largest, at the engine's stride (Nemotron 3.5 Bolt).
+void spread_rows(const float* x, int n, float* y, int stride, int rows, float fill, void* stream);
 /// acc[t] += sum over k < n_used of w[t * n_used + k] * x[t * n_used + k], for rows of n values: a token's
 /// weighted experts added to its row.
 void moe_sum(const float* x, const float* w, float* acc, int n, int n_used, int rows, void* stream);

@@ -148,6 +148,9 @@ void expert_weights(float*,const float*,const int32_t*,int,void*) {
 void relu2_rows(const float*,float*,int,int,void*,const ExpertScales*) {
     throw std::runtime_error("Metal: relu^2 experts (Nemotron-H) are not supported");
 }
+void spread_rows(const float*,int,float*,int,int,float,void*) {
+    throw std::runtime_error("Metal: Nemotron-H's routers are not supported");
+}
 void moe_sum(const float* x,const float* w,float* acc,int n,int used,int rows,void* s) {
     BasicArgs a{{x,w,acc}}; a.n=n; a.stride=used; a.count=uint64_t(n)*rows; a.kind=7; element(a,s);
 }
