@@ -275,6 +275,9 @@ struct MetaValue {
     double num() const { return (type == MetaType::F32 || type == MetaType::F64) ? f : (double)u; }
 };
 
+/// The most items of an array read_value() keeps all of; a longer array keeps its first 64 and its count.
+inline constexpr uint64_t kWholeArray = 4096;
+
 inline MetaValue read_value(Cursor& c, MetaType t, int depth = 0) {
     if (depth > 2) throw std::runtime_error("GGUF: array nesting too deep");
     MetaValue v;
@@ -323,10 +326,14 @@ inline MetaValue read_value(Cursor& c, MetaType t, int depth = 0) {
         v.elem = (MetaType)c.read<uint32_t>();
         v.count = c.read<uint64_t>();
         if (v.count > (1u << 24)) throw std::runtime_error("GGUF: implausible array length");
-        v.items.reserve((size_t)std::min<uint64_t>(v.count, 64));
+        // Every item of an array that can be a model's per-layer data; a long one (a tokenizer's tokens, scores or
+        // merges) keeps a sample: the count is what matters there.  A sample of 64 cut Nemotron 3.5 Bolt's per-layer
+        // arrays (88 layers) short.
+        const uint64_t keep = v.count <= kWholeArray ? v.count : 64;
+        v.items.reserve((size_t)keep);
         for (uint64_t i = 0; i < v.count; ++i) {
             MetaValue e = read_value(c, v.elem, depth + 1);
-            if (i < 64) v.items.push_back(std::move(e)); // keep a sample; the count is what matters
+            if (i < keep) v.items.push_back(std::move(e));
         }
         break;
     }

@@ -10,6 +10,8 @@
 //      end unpadded (unsloth's UD-Q5_K_XL shard 1 ends 6 bytes before its aligned data start; llama.cpp's
 //      gguf-py reads it); nothing is ever read from its data section.
 //   4. one tensor, and the file ends at its header: still refused at open ("data section starts past EOF").
+//   5. a metadata array of 100 numbers keeps all of them (a model's per-layer values: Nemotron 3.5 Bolt has 88
+//      layers); one of 5,000 keeps its first 64 and its count (a tokenizer's lists).
 //
 // The fixture is a minimal GGUF v3 written here (header, no metadata, two F32[8] tensors, 32-byte
 // alignment), so the test needs neither gguf-py nor a shard.  The file is closed before it is removed:
@@ -123,6 +125,17 @@ int main() {
         std::filesystem::remove(path);
         check(err.find("data section starts past EOF") != std::string::npos,
               "one tensor, ends before the aligned data start: refused at open");
+    }
+    for (const uint64_t count : {uint64_t(100), uint64_t(5000)}) {
+        std::vector<uint8_t> b;
+        put<uint32_t>(b, 5);         // the items' type: I32
+        put<uint64_t>(b, count);
+        for (uint64_t i = 0; i < count; ++i) put<int32_t>(b, (int32_t) i);
+        strata::Cursor c(b.data(), b.size());
+        const strata::MetaValue v = strata::read_value(c, strata::MetaType::ARRAY);
+        const size_t want = count <= strata::kWholeArray ? (size_t) count : 64;
+        const bool ok = v.count == count && v.items.size() == want && v.items.back().u == want - 1;
+        check(ok, count == 100 ? "an array of 100 numbers keeps all of them" : "an array of 5,000 keeps 64 and its count");
     }
     std::printf(g_fail ? "gguf_reader_test: %d FAILED\n" : "gguf_reader_test: all passed\n", g_fail);
     return g_fail ? 1 : 0;
