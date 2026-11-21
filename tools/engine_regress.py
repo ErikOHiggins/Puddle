@@ -62,7 +62,16 @@ def parse_ids(stdout: str) -> list[int]:
     return []
 
 
-def run_once(exe: str, cfg: dict, ids: list[int], max_new: int, timeout: float) -> list[int]:
+def cache_of(stderr: str) -> str:
+    """What the engine's load says of its expert cache ("N of M routed experts in VRAM (G GiB)"), or "?": a model
+    whose experts do not all fit gets as many as the free VRAM holds at the load, so two runs can differ in it."""
+    for line in reversed(stderr.splitlines()):
+        if "routed experts in VRAM" in line and "loaded in" in line:
+            return line.split(";", 1)[-1].split(",")[0].strip()
+    return "?"
+
+
+def run_once(exe: str, cfg: dict, ids: list[int], max_new: int, timeout: float) -> tuple[list[int], str]:
     import server   # serve/server.py: the engine's arguments and environment as the server gives them
     cmd = [exe] + regress_args(server.engine_args(cfg), ids, max_new)
     r = subprocess.run(cmd, capture_output=True, text=True, env=server.child_env(cfg), timeout=timeout,
@@ -71,7 +80,7 @@ def run_once(exe: str, cfg: dict, ids: list[int], max_new: int, timeout: float) 
     if r.returncode != 0 or not got:
         tail = "\n".join((r.stderr or "").strip().splitlines()[-12:])
         raise RuntimeError(f"{Path(exe).name} exited {r.returncode} with {len(got)} ids:\n{tail}")
-    return got
+    return got, cache_of(r.stderr or "")
 
 
 def main(argv=None) -> int:
@@ -99,12 +108,19 @@ def main(argv=None) -> int:
         new = a.new or server.engine_exe(cfg)
         print(f"{name}: {len(ids)} prompt tokens, {a.max_new} to write, {a.runs} runs of each engine", flush=True)
         try:
-            outs = {k: [run_once(exe, cfg, ids, a.max_new, a.timeout) for _ in range(a.runs)]
+            runs = {k: [run_once(exe, cfg, ids, a.max_new, a.timeout) for _ in range(a.runs)]
                     for k, exe in (("old", a.old), ("new", new))}
         except (RuntimeError, subprocess.TimeoutExpired) as e:
             print(f"  a run failed: {e}")
             failed += 1
             continue
+        outs = {k: [ids_ for ids_, _ in v] for k, v in runs.items()}
+        caches = {k: [c for _, c in v] for k, v in runs.items()}
+        for k in ("old", "new"):
+            print(f"  {k} engine's expert cache, run by run: {' | '.join(caches[k])}")
+        if len({c for v in caches.values() for c in v}) > 1:
+            print("  (the runs' expert caches differ: experts computed on the card in one run and on the CPU in another"
+                  " can part at a near tie)")
         for k in ("old", "new"):
             d = [first_difference(outs[k][0], o) for o in outs[k][1:]]
             same = all(x < 0 for x in d)

@@ -36,6 +36,12 @@ class Ids(unittest.TestCase):
         self.assertEqual(R.parse_ids("7\n"), [7])
         self.assertEqual(R.parse_ids("no ids here\n"), [])
 
+    def test_the_expert_cache_of_a_run(self):
+        err = ("strata-poly: layers 0 to 20 on card 0: 2000 of 4000 routed experts in VRAM (9.0 GiB)\n"
+               "strata-poly: loaded in 31.2 s; 5120 of 9472 routed experts in VRAM (21.7 GiB), 11 CPU threads\n")
+        self.assertEqual(R.cache_of(err), "5120 of 9472 routed experts in VRAM (21.7 GiB)")
+        self.assertEqual(R.cache_of("nothing\n"), "?")
+
     def test_first_difference(self):
         self.assertEqual(R.first_difference([1, 2, 3], [1, 2, 3]), -1)
         self.assertEqual(R.first_difference([1, 2, 3], [1, 9, 3]), 1)
