@@ -360,6 +360,14 @@ __global__ void swiglu_clamp_rows_kernel(const float* __restrict__ gate_up, floa
     out[size_t(blockIdx.y) * n + i] = g / (1.0f + expf(-g)) * u;
 }
 
+// relu(x)^2 as ggml's relu then sqr: a value below 0 is 0
+__global__ void relu2_rows_kernel(const float* __restrict__ up, float* __restrict__ out, int n, ExpertScales s) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const float u = fmaxf(up[size_t(blockIdx.y) * 2 * n + i] * row_scales(s, blockIdx.y).x, 0.0f);
+    out[size_t(blockIdx.y) * n + i] = u * u;
+}
+
 __global__ void expert_weights_kernel(float* __restrict__ w, const float* __restrict__ scale,
                                       const int32_t* __restrict__ ids, int rows) {
     const int r = blockIdx.x * blockDim.x + threadIdx.x;
@@ -2231,6 +2239,11 @@ void swiglu_clamp_rows(const float* gate_up, float* out, int n, int rows, float 
                        const ExpertScales* scales) {
     swiglu_clamp_rows_kernel<<<dim3(grid(n, 256), rows), 256, 0, cs(stream)>>>(gate_up, out, n, limit,
                                                                                 scales ? *scales : ExpertScales{});
+}
+
+void relu2_rows(const float* up, float* out, int n, int rows, void* stream, const ExpertScales* scales) {
+    if (rows > 0)
+        relu2_rows_kernel<<<dim3(grid(n, 256), rows), 256, 0, cs(stream)>>>(up, out, n, scales ? *scales : ExpertScales{});
 }
 
 void expert_weights(float* w, const float* scale, const int32_t* ids, int rows, void* stream) {

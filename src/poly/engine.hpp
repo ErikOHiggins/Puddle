@@ -142,6 +142,14 @@ struct Dev {
 /// What a layer has in every architecture.  Its attention's weights, and a dense FFN's, are the architecture's.
 struct Layer {
     bool moe = false;
+    // A MoE layer's own expert geometry (load_moe()): the model's n_expert_ and n_ff_exp_ unless the file gives each
+    // layer its own (Nemotron 3.5 Bolt: 240 to 496 experts, 1,536 to 2,560 wide).  The places of experts the layer does
+    // not have, n_exp up to n_expert_, are never routed to, cached or read.
+    int n_exp = 0;        ///< the layer's routed experts
+    int n_ff = 0;         ///< one routed expert's hidden width
+    /// The routed experts are up and down alone, with relu(up x)^2 between them (Nemotron-H): up is where a gate would
+    /// be (exp_gate, gu_type, gu_bytes), a slot is up | down, and there is no second matrix (u_bytes 0).
+    bool relu2 = false;
     bool mmq = false;     ///< the card has MMQ tiles for its routed experts' types (Engine::batched())
     bool fixed = false;   ///< one token's launches can be recorded and replayed for the next ones (eval()): they
                           ///< are the same for every token, or read the position on the card (Engine::at_)
@@ -338,7 +346,7 @@ public:
     /// them), and those experts' GiB.
     int64_t ram_experts_mib() const { return opt_.ram_experts_mib; }
     double outside_gib() const { return double(outside_bytes_) / double(1ull << 30); }
-    int total_experts() const { return n_moe_ * n_expert_ + (next_ ? next_->total_experts() : 0); }
+    int total_experts() const { return (int) n_exps_ + (next_ ? next_->total_experts() : 0); }
     double cached_gib() const { return double(exp_at_) / double(1ull << 30) + (next_ ? next_->cached_gib() : 0); }
     /// The cache as load() filled it, which is as large as resize_cache() makes it again.
     int full_experts() const { return full_cached_ + (next_ ? next_->full_experts() : 0); }
@@ -447,6 +455,9 @@ protected:
     /// The scores of a layer's router for n tokens, into rl_.  The engine's own: the router's matrix times the
     /// experts' input (xn_).
     virtual void router_scores(const Layer& L, int n);
+    /// The next MoE layer's scores on this layer's input, for reading its experts ahead (moe_router()): n rows of
+    /// n_expert_ into out.  The engine's own: that router's matrix times xn_.
+    virtual void ahead_scores(const Layer& next, int n, float* out);
     /// What is done to `rows` rows of logits on the card before they are copied out.
     virtual void finish_logits(float* logits, int rows) { (void) logits, (void) rows; }
     /// What a token's embedding is multiplied by on its way in.
@@ -505,7 +516,7 @@ protected:
     bool runs(int il) const { return il >= lo_ && (il < hi_ || hi_ == n_layer_); }
     size_t card_state_bytes() const { return state_n_ * sizeof(float) + extra_bytes(); }
     /// Every expert of this engine's layers is in its cache.
-    bool all_cached() const { return cached_ == n_moe_ * n_expert_; }
+    bool all_cached() const { return cached_ == n_exps_; }
     /// The rows a call of n tokens leaves in r_, to h (pinned) for the next card's engine, which goes on from them.
     void hand_on(int64_t pos, int n, float* h);
     float* pass_rows(int n);
@@ -535,6 +546,11 @@ protected:
     void lin_raw(const Dev& w, const float* x, float* y, int n, const void* xq, int rows_per_x);
     /// The layer's ExpertScales for rows of the experts ids[r] (on the card), or none.
     ExpertScales expert_scales(const Layer& L, const int32_t* ids = nullptr) const;
+    /// The routed experts' activation from their gate|up rows (2 * L.n_ff apart) to L.n_ff values a row: relu^2 of up
+    /// (Layer::relu2), GELU (gelu_) or SwiGLU within `limit`.
+    void act_rows(const Layer& L, const float* gu, float* h, int rows, float limit, const ExpertScales* es);
+    /// cpu_experts()' activation for the layer (CpuAct).
+    int cpu_act(const Layer& L) const { return L.relu2 ? kCpuRelu2 : gelu_ ? kCpuGelu : kCpuSwiglu; }
     void fill_expert_cache();
     void ensure_stage();
     void start_swaps();
@@ -683,6 +699,11 @@ protected:
     int n_embd_ = 0, n_layer_ = 0, n_vocab_ = 0;
     int n_ff_ = 0;            ///< a dense FFN's width, in the architectures that have one
     int n_expert_ = 0, n_used_ = 0, n_ff_exp_ = 0, n_ff_shexp_ = 0, n_moe_ = 0;
+    /// The routed experts' input and output width: n_embd_, or a latent one (Nemotron-H's LatentMoE, whose experts
+    /// work between a projection down and one up that the architecture does); xn_ then holds the latent rows.
+    int e_embd_ = 0;
+    int64_t n_exps_ = 0;      ///< every MoE layer's routed experts together (Layer::n_exp): n_moe_ * n_expert_ in
+                              ///< a file whose layers are alike
     int rows_ = 1;            ///< tokens the scratch is sized for
     int read_rows_ = 1;       ///< the most tokens read() takes
     // read()'s calls between two layers: r_ holds two calls' rows, and with more calls than that the others'

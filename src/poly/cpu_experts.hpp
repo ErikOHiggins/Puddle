@@ -60,9 +60,15 @@ struct CpuExpert {
 bool cpu_expert_types_ok(int gu_type, int d_type, int n_embd, int n_ff, std::string& err);
 
 
+/// The activation between an expert's products (cpu_experts()' `act_kind`): false / true of the gelu flag it once was,
+/// and Nemotron-H's relu^2 of up alone.
+enum CpuAct : int { kCpuSwiglu = 0, kCpuGelu = 1, kCpuRelu2 = 2 };
+
 /// For each of `rows` tokens, with n_embd values of x and of out each:
 /// out = sum over the token's experts of weight * down(silu(min(gate x, limit)) * clamp(up x, -limit, limit)),
-/// or with `gelu` of weight * down(gelu(gate x) * up x), in the tanh form of GELU the GPU experts compute.
+/// or with kCpuGelu of weight * down(gelu(gate x) * up x), in the tanh form of GELU the GPU experts compute,
+/// or with kCpuRelu2 of weight * down(relu(up x)^2), up being where the gate is (CpuExpert::gate, gu_type,
+/// gate_scale) and no second matrix read.
 /// The n experts come token after token, a token's together.  An expert that several of the tokens use is read
 /// once for all of them: reading it is most of the work.  A token's result is the one it has in a call of its own.
 /// `meanwhile`, when given, is run once by one of the threads, beside the first products.  It must not throw.
@@ -70,7 +76,7 @@ bool cpu_expert_types_ok(int gu_type, int d_type, int n_embd, int n_ff, std::str
 /// `late`, when given, marks the experts whose weights are still being read: their products come after the others',
 /// and `wait(j)` is called before experts[j]'s are read.  The sums are as without them.
 void cpu_experts(Workers& workers, const CpuExpert* experts, int n, int rows, int gu_type, int u_type, int d_type,
-                 int n_embd, int n_ff, const float* x, float limit, bool gelu, float* out,
+                 int n_embd, int n_ff, const float* x, float limit, int act_kind, float* out,
                  const std::function<void()>* meanwhile = nullptr, const uint8_t* late = nullptr,
                  const std::function<void(int)>* wait = nullptr);
 

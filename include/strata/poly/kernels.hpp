@@ -114,6 +114,10 @@ struct ExpertScales {
 /// swiglu_clamp for rows that each hold n gate values and then n up values; out has n values a row.
 void swiglu_clamp_rows(const float* gate_up, float* out, int n, int rows, float limit, void* stream,
                        const ExpertScales* scales = nullptr);
+/// relu(up)^2 for rows that each hold n up values where a gate|up row has its gate (rows 2n apart: the routed experts'
+/// buffers are shared with swiglu_clamp_rows), n values a row into out: Nemotron-H's experts, up and down alone
+/// (llama.cpp's LLM_FFN_RELU_SQR).  The scales' gate is up's (Layer::relu2).
+void relu2_rows(const float* up, float* out, int n, int rows, void* stream, const ExpertScales* scales = nullptr);
 /// out = gelu(gate) * up, with the tanh form of GELU that ggml's CUDA backend computes.
 void geglu(const float* gate, const float* up, float* out, int n, void* stream);
 /// geglu for rows that each hold n gate values and then n up values; out has n values a row.

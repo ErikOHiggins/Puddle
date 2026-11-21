@@ -140,7 +140,7 @@ bool cpu_expert_types_ok(int gu_type, int d_type, int n_embd, int n_ff, std::str
 }
 
 void cpu_experts(Workers& workers, const CpuExpert* experts, int n, int rows, int gu_type, int u_type, int d_type,
-                 int n_embd, int n_ff, const float* x, float limit, bool gelu, float* out,
+                 int n_embd, int n_ff, const float* x, float limit, int act_kind, float* out,
                  const std::function<void()>* meanwhile, const uint8_t* late, const std::function<void(int)>* wait) {
     init_once();
     const ggml_type_traits_cpu* tg = traits(gu_type);
@@ -213,10 +213,15 @@ void cpu_experts(Workers& workers, const CpuExpert* experts, int n, int rows, in
                 const uint8_t* au = actup + (size_t) experts[j].row * au_step;
                 float g = 0.f, u = 0.f;
                 tg->vec_dot(n_embd, &g, 0, gate, 0, a, 0, 1);
-                tu->vec_dot(n_embd, &u, 0, up, 0, au, 0, 1);
                 g *= e.gate_scale;
+                if (act_kind == kCpuRelu2) {   // `gate` is up: ggml's relu, then sqr
+                    g = g > 0.f ? g : 0.f;
+                    hp[(size_t) j * n_ff + r] = g * g;
+                    continue;
+                }
+                tu->vec_dot(n_embd, &u, 0, up, 0, au, 0, 1);
                 u *= e.up_scale;
-                if (gelu) {
+                if (act_kind == kCpuGelu) {
                     hp[(size_t) j * n_ff + r] =
                         0.5f * g * (1.f + std::tanh(0.7978845608f * g * (1.f + 0.044715f * g * g))) * u;
                     continue;
