@@ -38,6 +38,8 @@ offers the same steps as tools.
 - strata-poly's own tests (C++/CUDA; those that need a card skip without one): `./update.sh --tests` compiles the
   engine with them in `build-poly-tests/` and runs them with ctest, `./update.sh --tests REGEX` the matching ones.
   The installed engine is not touched.
+- A change to strata-poly that should leave the models' answers as they were: `tools/engine_regress.py --old <the
+  engine before it> strata-<model>.json ...` runs both engines greedy on each installed model and compares the ids.
 - Keep the docs' style: plain words, measured numbers with what they were measured on, no claims without a
   measurement.
 
