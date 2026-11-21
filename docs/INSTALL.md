@@ -13,8 +13,8 @@ this for you with [AI_SETUP.md](AI_SETUP.md). A Mac: [MAC.md](MAC.md).
 
 | | |
 | --- | --- |
-| **GPU** | **NVIDIA** RTX 20 series or newer, 8 GB of VRAM or more; Laguna-S wants 16 GB or two cards, Nemotron 3.5 Bolt 30 GB of VRAM together on llama-server (one 32 GB card or two 16 GB, NVIDIA only) or 16 GB on strata-poly (`nemotron-bolt-poly`), Nemotron 3.5 Super 16 GB or more. Laguna and both Nemotrons have run on two RTX 5060 Ti 16 GB. **AMD** cards are experimental: [AMD cards](#amd-cards). Pascal / Volta cards: [OLDER_GPUS.md](OLDER_GPUS.md). |
-| **RAM** | By model and size, setup's estimate beside the card: Laguna-S about 51 to 93 GB beside a 16 GB card, Laguna-XS about 17 GB beside a 16 GB card, Nemotron 3.5 Bolt about 16 GB on llama-server (it keeps every layer on the cards; not measured) and about 17 GB beside a 16 GB card on strata-poly, Nemotron 3.5 Super about 47 GB beside two 16 GB cards and 62 beside one, Gemma 4 15 to 21 GB beside an 8 GB card. `--check` prints it for your PC. |
+| **GPU** | **NVIDIA** RTX 20 series or newer, 8 GB of VRAM or more; Laguna-S wants 16 GB or two cards, Nemotron 3.5 Bolt 16 GB or more (on llama-server, `nemotron-bolt-llama`: 30 GB of VRAM together, one 32 GB card or two 16 GB, NVIDIA only), Nemotron 3.5 Super 16 GB or more. Laguna and both Nemotrons have run on two RTX 5060 Ti 16 GB. **AMD** cards are experimental: [AMD cards](#amd-cards). Pascal / Volta cards: [OLDER_GPUS.md](OLDER_GPUS.md). |
+| **RAM** | By model and size, setup's estimate beside the card: Laguna-S about 51 to 93 GB beside a 16 GB card, Laguna-XS about 17 GB beside a 16 GB card, Nemotron 3.5 Bolt about 17 GB beside a 16 GB card (on llama-server about 16 GB: it keeps every layer on the cards; not measured), Nemotron 3.5 Super about 47 GB beside two 16 GB cards and 62 beside one, Gemma 4 15 to 21 GB beside an 8 GB card. `--check` prints it for your PC. |
 | **CPU** | x86-64 with AVX2 (any Intel/AMD desktop CPU from the last ~8 years). Without AVX2 it is experimental and slow: [Older CPUs](#older-cpus-experimental). |
 | **Disk** | The model: 11 to 96 GB by size (Laguna-S UD-Q3_K_XL 54 GB, Laguna-XS 20 GB, Nemotron 3.5 Bolt 22 GB, Nemotron 3.5 Super 66 GB, Gemma 4 11 to 17 GB), plus 1.2 to 1.7 GB for pictures, a few GB for the build, and on Linux with an AMD card ~10 GB for ROCm. An NVMe SSD makes starts faster. |
 | **OS** | Linux or Windows 10/11. Laguna and the Nemotrons have run on Linux only so far: on Windows setup says so (and asks first for Laguna and Nemotron 3.5 Super). |
@@ -24,8 +24,8 @@ The driver is the only thing you install yourself. Everything else is set up for
 you have none (for your user account, no admin), a private Python environment in `.venv/`, llama.cpp's source at a
 pinned commit in `third_party/`, the engine, and the model. Setup always compiles the engine, strata-poly, for your
 card: it needs a CUDA toolkit (and on Windows Visual Studio's C++ build tools), which it offers to install, and the
-first compile takes 10 to 20 minutes. For Nemotron 3.5 Bolt it compiles llama.cpp's llama-server instead
-(into `engine-llama/`, once): [NEMOTRON.md](NEMOTRON.md).
+first compile takes 10 to 20 minutes. For Nemotron 3.5 Bolt on llama-server (opt-in) it compiles llama.cpp's
+llama-server instead (into `engine-llama/`, once): [NEMOTRON.md](NEMOTRON.md).
 
 ## Windows
 
@@ -107,13 +107,13 @@ them and sets itself up the same way: nothing big is downloaded again.
 - **Where that data folder is:** `%APPDATA%\Puddle\settings.json` on Windows, `~/.config/puddle/settings.json` on
   Linux. Puddle never moves files out of a PolyStrata install, so a PolyStrata data folder can be shared through a link.
 - **The program itself:** `.venv/`, `engine-poly/`, `build-poly/` and `third_party/` in the Puddle folder; for
-  Nemotron 3.5 Bolt also `engine-llama/` and `build-llama-server/`.
+  Nemotron 3.5 Bolt on llama-server also `engine-llama/` and `build-llama-server/`.
 - **Where github.com cannot be reached:** setup downloads llama.cpp's source from GitHub at the commit
   `LLAMA_CPP_COMMIT` in `setup.py` names. Put that commit's tree in `third_party/llama.cpp` yourself and setup uses it.
 
 ## Setup's questions
 
-- **Which model and size?** Laguna-S, Laguna-XS, Nemotron 3.5 Bolt (on llama-server, or on strata-poly), Nemotron 3.5 Super or Gemma 4, and a size of it; each line says its
+- **Which model and size?** Laguna-S, Laguna-XS, Nemotron 3.5 Bolt (on strata-poly, or on llama-server), Nemotron 3.5 Super or Gemma 4, and a size of it; each line says its
   download and the RAM setup expects on your card.
 - **Which cards?** One, or several sharing the model.
 - **How much context?** How much text it can keep in mind at once: 8K, 32K (recommended), 64K or 128K, each with the

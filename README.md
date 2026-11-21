@@ -25,10 +25,9 @@ Puddle.
 
 All five are experimental. poolside's Laguna-S Q4_K_M keeps 8 of its 47 expert layers in BF16, which run on the
 processor every token, and it has a 1M-token rope where Unsloth's files have 262K; it has not been run yet.
-Nemotron 3.5 Bolt runs on llama.cpp's `llama-server` by default, which setup compiles, with Puddle's server in front of
-it; `--family nemotron-bolt-poly` runs the same file on strata-poly, as a second model beside it (opt-in), and fits
-one 16 GB card. Nemotron 3.5 Super runs on strata-poly, pictures too; its MTP block, which guesses the next tokens ahead, does not
-run yet ([docs/NEMOTRON.md](docs/NEMOTRON.md)).
+Both Nemotrons run on strata-poly, pictures too, and Bolt fits one 16 GB card there. `--family nemotron-bolt-llama`
+runs Bolt's file on llama.cpp's `llama-server` instead, which setup compiles, as a second model beside it (opt-in).
+Super's MTP block, which guesses the next tokens ahead, does not run yet ([docs/NEMOTRON.md](docs/NEMOTRON.md)).
 
 Which models Puddle offers: open-weight models whose license puts no restriction on their use, OpenMDW first (both
 Lagunas and both Nemotrons are OpenMDW-1.1), with Apache 2.0 where a gap needs filling (Gemma 4, which reads
@@ -49,10 +48,10 @@ Linux, with the KV cache in q8_0 and prompt-lookup guesses off (2026-11-14):
 Against llama.cpp on the same file (six prompts, 64 steps each, llama.cpp choosing each token), strata-poly's first
 choice was the same at 95.3% of the 384 steps, and in every prompt the first difference was a near tie.
 
-**Nemotron 3.5 Bolt** on the same two cards, with llama-server alone (not yet through Puddle), one request with
-pictures (2026-11-20): read an 11,331-token prompt at 1,402 tokens/s and wrote 589 tokens at 57.6 tokens/s, at a
-168K context. On strata-poly (2026-11-21; not offered by setup yet) its first choice was llama.cpp's at 198 of 199
-steps (four prompts, llama.cpp choosing each token; the one difference a near tie).
+**Nemotron 3.5 Bolt** on the same two cards, through Puddle, the same requests to strata-poly and to llama-server
+(2026-11-21): strata-poly wrote 60.4 tokens/s after a 17,613-token prompt (llama-server 56.5) and read that prompt
+at 1,767 tokens/s (llama-server 2,348). Its first choice was llama.cpp's at 198 of 199 steps (four prompts,
+llama.cpp choosing each token; the one difference a near tie), and at 64 of 64 on a picture.
 
 **Nemotron 3.5 Super UD-Q3_K_XL** on the same two cards, on strata-poly (2026-11-21): its first choice was llama.cpp's
 at all 177 steps of four prompts, a 2,109-token one among them. A first look at its speed, not a benchmark: with 6,647
@@ -71,7 +70,7 @@ report ([how](docs/COMMUNITY_BENCHMARKS.md)).
 | --- | --- | --- | --- |
 | Laguna-S 2.1 | NVIDIA RTX 20 series or newer; it has run on two 16 GB cards | about 51 GB beside a 16 GB card (UD-Q3_K_XL) | 54 to 96 GB |
 | Laguna-XS 2.1 | same | about 17 GB beside a 16 GB card | 20 GB |
-| Nemotron 3.5 Bolt | NVIDIA cards with 30 GB of VRAM together (one 32 GB card, or two 16 GB); it has run on two 16 GB cards | about 16 GB (not measured) | 22 GB, 24 with pictures |
+| Nemotron 3.5 Bolt | NVIDIA RTX 20 series or newer, 16 GB or more (on llama-server, opt-in: 30 GB of VRAM together); it has run on two 16 GB cards | about 17 GB beside a 16 GB card, 10 beside two | 22 GB, 24 with pictures |
 | Nemotron 3.5 Super | NVIDIA RTX 20 series or newer, 16 GB or more; it has run on two 16 GB cards | about 47 GB beside two 16 GB cards, 62 beside one | 66 GB |
 | Gemma 4 26B-A4B | NVIDIA RTX 20 series or newer, 8 GB or more | about 15 to 21 GB beside an 8 GB card | 11 to 17 GB |
 
@@ -105,7 +104,7 @@ installs the build tools first, and asks; the first compile takes 10 to 20 minut
 it. If the download stops, run it again: it continues where it stopped. Your browser opens the app at
 `http://127.0.0.1:8080`.
 
-`./setup.sh --family laguna-s` (or `laguna-xs`, `nemotron-bolt`, `nemotron-bolt-poly`, `nemotron-super`, `gemma4`) goes straight to one model, and `--model SIZE`
+`./setup.sh --family laguna-s` (or `laguna-xs`, `nemotron-bolt`, `nemotron-bolt-llama`, `nemotron-super`, `gemma4`) goes straight to one model, and `--model SIZE`
 to one size. Every option: [docs/INSTALL.md](docs/INSTALL.md).
 
 **Next time**, run `START-HERE.bat` (or `./setup.sh`) again: it starts right away and downloads nothing twice. Close
@@ -136,7 +135,7 @@ the layers every token needs and as many experts as fit go to the graphics card,
 system's file cache), where the processor computes them when a token needs them. The engine counts which experts
 are used and keeps the counts for its next start, when the most-used ones go to the card first. How the engine and its backends work:
 [docs/BACKENDS.md](docs/BACKENDS.md). The Nemotrons' architecture (Mamba-2 layers beside attention and experts) is
-strata-poly's since phase 2, and Super runs on it; setup still gives Bolt llama-server, with every layer on the cards
+strata-poly's since phase 2, and both Nemotrons run on it; Bolt can run on llama-server instead, opt-in
 ([docs/NEMOTRON.md](docs/NEMOTRON.md)).
 
 ## Credits and license
@@ -150,6 +149,6 @@ Google, under Apache 2.0, in Unsloth's quantization.
 Puddle is built on [PolyStrata](https://github.com/simplexai-labs/PolyStrata) by VecSzn and its contributors, which is
 built on [Strata](https://github.com/Niko1221/Strata) by Niko1221 and its contributors (how Strata's engine works:
 [the Strata paper](https://github.com/simplexai-labs/PolyStrata/blob/67dde645dd94190733cca8ad78d2faa68b930e2a/docs/paper/Strata-Paper.pdf)).
-It uses parts of [llama.cpp / ggml](https://github.com/ggml-org/llama.cpp), and runs Nemotron 3.5 Bolt on llama.cpp's
-`llama-server`. Puddle is open source under the
+It uses parts of [llama.cpp / ggml](https://github.com/ggml-org/llama.cpp), and can run Nemotron 3.5 Bolt on
+llama.cpp's `llama-server`. Puddle is open source under the
 [MIT License](LICENSE); every model has its own license.

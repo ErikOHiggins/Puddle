@@ -18,7 +18,7 @@ The model must not be running: the check starts Puddle with the run config (on 1
 it, then starts llama-server with the config's own command and environment (the cards in the same order), asks,
 stops it, and compares.  One model in VRAM at a time.
 
-    python tools/llama_server_check.py --config strata-nemotron-bolt-24gb.json --image picture.jpg
+    python tools/llama_server_check.py --config strata-nemotron-llama-bolt-24gb.json --image picture.jpg
         [--prompt "What does this picture show? Two sentences."] [--max-tokens 600]
 
 Exit code 0: the same prompt, and Puddle's answer from llama-server alone's /completion (the chat endpoint's answer

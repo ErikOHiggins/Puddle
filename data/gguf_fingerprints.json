@@ -84,7 +84,7 @@
   ],
   "url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF/resolve/e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246/"
  },
- "nemotron-bolt-poly/24GB": {
+ "nemotron-bolt-llama/24GB": {
   "arch": "nemotron_h_moe",
   "layers": 88,
   "tensors": 843,

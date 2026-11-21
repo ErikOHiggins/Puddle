@@ -9,8 +9,8 @@ Puddle is a fork of [PolyStrata](https://github.com/simplexai-labs/PolyStrata), 
 second engine, strata-poly, for other mixture-of-experts models, built on Strata's code (its quantized matvec kernels,
 GGUF reader, draft policy, conversation memory and the llama.cpp MMQ kernels). Puddle keeps strata-poly with
 PolyStrata's server, web app and installer, offers five models (Laguna-S 2.1, Laguna-XS 2.1, Nemotron 3.5 Bolt,
-Nemotron 3.5 Super and Gemma 4 26B-A4B), and added Laguna's and the Nemotrons' architectures. Setup runs Nemotron 3.5
-Super on strata-poly and Nemotron 3.5 Bolt on llama.cpp's llama-server ([NEMOTRON.md](NEMOTRON.md)). Strata's Qwen3.8 engine and PolyStrata's other models
+Nemotron 3.5 Super and Gemma 4 26B-A4B), and added Laguna's and the Nemotrons' architectures. Setup runs both
+Nemotrons on strata-poly, and Bolt on llama.cpp's llama-server too when asked ([NEMOTRON.md](NEMOTRON.md)). Strata's Qwen3.8 engine and PolyStrata's other models
 have been removed.
 
 ### How do I know the output is right?
@@ -44,8 +44,8 @@ ran other models of the same engine on an RX 7600 and an RX 9070 XT ([AMD_HIP.md
 
 Setup's figures for the VRAM a model takes beside its experts: Laguna-S about 8 GB (from echo), Laguna-XS about 5 GB
 (an estimate), Gemma 4 about 4.1 to 5.8 GB by size. Setup wants 2 GB more than that on the card. Laguna-XS and Gemma 4
-are the ones to try on an 8 GB card. Nemotron 3.5 Bolt keeps every layer on the cards and wants 30 GB of VRAM
-together: setup refuses it on less.
+are the ones to try on an 8 GB card. Nemotron 3.5 Bolt takes about 7 GB beside its experts (from echo); on
+llama-server (opt-in) it keeps every layer on the cards and wants 30 GB of VRAM together: setup refuses it on less.
 
 ### What about older cards like a GTX 1050?
 
@@ -71,7 +71,7 @@ There is no command for it. A model's files are these, where `<model>` is the na
 - `run-<model>.bat` or `run-<model>.sh`
 
 `models/` and `packs/` are in the `Puddle-data` folder. The engine (`engine-poly/`) is shared by every model: keep it.
-`engine-llama/` is Nemotron 3.5 Bolt's llama-server alone.
+`engine-llama/` is llama-server alone, for Nemotron 3.5 Bolt on llama-server (opt-in).
 
 ### Which size should I take?
 

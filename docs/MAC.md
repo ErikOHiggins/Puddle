@@ -8,8 +8,8 @@ Mac (5-15 minutes the first time) and sets up a model the way `START-HERE.bat` d
 
 - **Laguna-S and Laguna-XS do not run on a Mac yet.** The Metal build does not compile the Laguna code. Adding it is
   planned, and it will be untested until someone with a Mac runs it.
-- **Nemotron 3.5 Bolt is not offered on a Mac.** It runs on llama.cpp's llama-server, which setup compiles for NVIDIA
-  cards only ([NEMOTRON.md](NEMOTRON.md)).
+- **The Nemotrons are not offered on a Mac.** The Metal build has no kernels for their Mamba-2 layers, and setup
+  compiles llama-server for NVIDIA cards only ([NEMOTRON.md](NEMOTRON.md)).
 - **Gemma 4** uses an architecture the Metal port has (gemma4). Upstream ran models of the Metal port's architectures
   on Metal, but not these files.
 

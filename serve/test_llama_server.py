@@ -327,10 +327,12 @@ class Registry(unittest.TestCase):
             e = registry.describe(cfg)
             self.assertEqual((e["status"], e["backend"], e["path"], e["context"]),
                              ("available", "nemotron_h_moe", str(model), 168000))
-            other = root / "strata-other.json"            # the same file under strata-poly: not one it runs
+            # the same file under strata-poly, which runs nemotron_h_moe too (Bolt's default engine since 2026-11-21)
+            other = root / "strata-other.json"
             other.write_text(json.dumps({"exe": str(root / "llama-server"), "args": ["--model", str(model)],
                                          "tokenizer": str(root / "tok")}))
-            self.assertEqual(registry.describe(other)["status"], "unavailable")
+            o = registry.describe(other)
+            self.assertEqual((o["status"], o["backend"], o["path"]), ("available", "nemotron_h_moe", str(model)))
 
 
 if __name__ == "__main__":

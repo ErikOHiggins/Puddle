@@ -9,7 +9,7 @@ Laguna-S 2.1 and Laguna-XS 2.1 run this way on echo, on two RTX 5060 Ti 16 GB (P
 and x4) under Linux, with `"layer_split": "auto"`. Laguna-S's speeds there: [BACKENDS.md](BACKENDS.md#laguna-on-two-16-gb-cards).
 AMD cards split the same way on Linux ([AMD_HIP.md](AMD_HIP.md)).
 
-Nemotron 3.5 Bolt is split by llama-server instead, not by strata-poly: its run config's `--tensor-split` puts an
+Nemotron 3.5 Bolt on llama-server (`nemotron-bolt-llama`, opt-in) is split by llama-server instead, not by strata-poly: its run config's `--tensor-split` puts an
 even share of the model's layers on each card in `"gpu"`, every layer on a card. It ran this way on the same two cards
 ([NEMOTRON.md](NEMOTRON.md)). The rest of this page is about strata-poly.
 

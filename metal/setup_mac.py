@@ -42,7 +42,7 @@ EXE = BUILD_DIR / "strata-poly"
 MIN_MACOS = (15, 0)        # MTLResidencySet (the engine keeps every buffer resident through one)
 
 # Every family runs on strata-poly; its files, revisions, sizes and checksums stay in setup.py's single catalog.
-# (a family the Metal build has no kernels for says "metal": False: Nemotron 3.5 Super's Mamba-2 layers)
+# (a family the Metal build has no kernels for says "metal": False: the Nemotrons' Mamba-2 layers)
 MAC_POLY_FAMILIES = tuple(f for f, d in S.FAMILIES.items() if d.get("engine") == "poly" and d.get("metal", True))
 
 
@@ -68,7 +68,7 @@ def smaller_model_catalog() -> dict:
 
 def model_catalog() -> dict:
     """All installer choices, keyed by family and then quantization (never quant alone): strata-poly's families
-    (Nemotron 3.5 Bolt runs on llama-server, which setup builds for NVIDIA cards only)."""
+    (not the Nemotrons: the Metal build has no Mamba-2 kernels, and llama-server is built for NVIDIA cards only)."""
     return {family: dict(S.FAMILIES[family], models=S.family_models(family), metal_engine="strata-poly")
             for family in MAC_POLY_FAMILIES}
 

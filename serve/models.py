@@ -24,7 +24,7 @@ BACKENDS = {
     "laguna": "laguna",          # Laguna-S 2.1, Laguna-XS 2.1
     "qwen35moe": "qwen35moe",    # no setup family now; the engine keeps it until Bolt's Mamba-2 path runs
     "gemma4": "gemma4",
-    "nemotron_h_moe": "nemotron_h_moe",   # Nemotron 3.5 Super, and Bolt (llama-server by default; nemotron-bolt-poly)
+    "nemotron_h_moe": "nemotron_h_moe",   # Nemotron 3.5 Super and Bolt (Bolt on llama-server: opt-in)
 }
 # a routed expert's tensors: they stay in the file and are held in VRAM as far as it has room
 EXPERT = re.compile(r"\.ffn_(gate|up|down|gate_up)_exps\.weight$")

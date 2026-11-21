@@ -30,16 +30,16 @@ FINGERPRINTS = ROOT / "data" / "gguf_fingerprints.json"
 # the architectures strata-poly runs for Puddle's families -> FAMILIES[family]["title"] in setup.py (resolve_custom_gguf
 # maps a "family" verdict back to --family / --model by that title).  Laguna-S and Laguna-XS share one architecture:
 # their layer count tells them apart, as it tells Nemotron 3.5 Super (88 layers and its MTP block) from Bolt (88).
-POLY_ARCHS = {"laguna": {48: "Laguna S 2.1", 40: "Laguna XS 2.1"}, "nemotron_h_moe": {89: "Nemotron 3.5 Super"},
-              "gemma4": "Gemma 4 26B-A4B"}
-# the architectures of setup's llama-server families ("engine": "llama-server"): setup installs their own file only.
-# A file of one of them that a family above has (Super) is that family's.
-LLAMA_ARCHS = {"nemotron_h_moe": "Nemotron 3.5 Bolt"}
+POLY_ARCHS = {"laguna": {48: "Laguna S 2.1", 40: "Laguna XS 2.1"},
+              "nemotron_h_moe": {89: "Nemotron 3.5 Super", 88: "Nemotron 3.5 Bolt"}, "gemma4": "Gemma 4 26B-A4B"}
+# the architectures only a llama-server family runs ("engine": "llama-server"), whose own file alone setup installs.
+# None now: Bolt's llama-server family (nemotron-bolt-llama) has the file of the strata-poly family above.
+LLAMA_ARCHS: dict[str, str] = {}
 
 
 def known_sentence(exact: list) -> str:
-    """The verdict for a file setup installs: each family/size that installs it (Bolt's file: on llama-server, and on
-    strata-poly as nemotron-bolt-poly)."""
+    """The verdict for a file setup installs: each family/size that installs it (Bolt's file: on strata-poly, and on
+    llama-server as nemotron-bolt-llama)."""
     first, *more = [k.split("/") for k in exact]
     return (f"this is setup's --family {first[0]} --model {first[1]}"
             + "".join(f" (or --family {f} --model {m})" for f, m in more) + " (give its folder with --gguf-dir)")
@@ -127,11 +127,13 @@ def verdict(fp: dict, table: dict) -> tuple[str, str]:
                       "NVIDIA's own file on llama-server, and sets up no other file of it")
     if fp["arch"] not in POLY_ARCHS:
         return "no", (f"not a model Puddle runs (architecture {fp['arch']!r}): its strata-poly engine runs "
-                      + ", ".join(POLY_ARCHS) + " (Laguna, Nemotron 3.5 Super, Gemma 4), and llama-server "
-                      + ", ".join(LLAMA_ARCHS) + " (" + ", ".join(LLAMA_ARCHS.values()) + ")")
+                      + ", ".join(POLY_ARCHS) + " (Laguna, the Nemotrons, Gemma 4)"
+                      + (", and llama-server " + ", ".join(LLAMA_ARCHS) + " (" + ", ".join(LLAMA_ARCHS.values()) + ")"
+                         if LLAMA_ARCHS else ""))
     if not title:
-        return "no", (f"a {fp['arch']} model of {fp.get('layers')} layers: Puddle has no family of that size "
-                      "(Laguna-S has 48, Laguna-XS 40)")
+        sizes = POLY_ARCHS[fp["arch"]]
+        return "no", (f"a {fp['arch']} model of {fp.get('layers')} layers: Puddle has no family of that size ("
+                      + ", ".join(f"{t} has {n}" for n, t in sizes.items()) + ")")
     if exact:
         return "known", known_sentence(exact)
     same = [k for k, v in known.items() if v["expert_bytes"] == fp["expert_bytes"]]
