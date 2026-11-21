@@ -203,7 +203,7 @@ strata-poly is made to write the same answer, and each step's first choice is co
 | code (22 tokens) | 32 of 32 | 64 of 64 |
 | chat (11 tokens) | 49 of 49 | 48 of 48 |
 | doc (2,109 tokens) | 64 of 64 | 23 of 23 |
-| picture (318 tokens, 300 of them the picture) | 63 of 64 (the other a near tie) | not run |
+| picture (318 tokens, 300 of them the picture) | 63 of 64 (the other a near tie) | 64 of 64 |
 
 The picture is llama.cpp's `tools/mtmd/test-1.jpeg` (640x488, a newspaper's front page), read by each program's own
 encoder from the same `mmproj-BF16.gguf` (`--image <picture> --mmproj <file>`): llama-server read 318 prompt tokens,
@@ -234,12 +234,15 @@ strata-poly does not need every layer on the cards: the experts that do not fit 
 | two RTX 5060 Ti 16 GB | all 13,824 (15.9 GiB) |
 
 From that, setup estimates about 17 GB of RAM beside one 16 GB card. Its first choices matched llama.cpp's at 198 of
-199 steps ([the table above](#nemotron-35-super-on-strata-poly)). Not measured yet: its speed, and its pictures
-against llama-server.
+199 steps, and at 64 of 64 on a picture ([the table above](#nemotron-35-super-on-strata-poly)). Through Puddle's server
+on two cards with the image encoder (all 13,824 experts still in VRAM: 7.6 and 8.3 GiB), asked for the headline of
+`test-1.jpeg`, it gave it and the line under it, and wrote 824 tokens at 69.8 tokens/s after a 335-token prompt. That
+is a first look, not a comparison with llama-server (57.61 tokens/s after an 11,331-token prompt, another day): the
+same-day measurement on the same prompts is not done yet.
 
 ## Not there yet
 
-- Super's MTP block; Bolt on strata-poly's pictures checked against llama-server.
+- Super's MTP block.
 - strata-poly's speed on both: the recorded launches (CUDA graphs), guesses, and a same-day measurement against
   llama-server on the same files.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not

@@ -184,8 +184,16 @@ class BoltOnStrataPoly(unittest.TestCase):
         self.assertEqual(Path(arg(cfg, "--model")).parent.name, "nemotron-bolt-24GB")
         self.assertEqual(Path(cfg["vision"]["mmproj"]).name, setup.FAMILIES["nemotron-bolt"]["mmproj"])
         self.assertFalse(cfg["vision"].get("max_tokens"))           # the encoder file's own limits
+        self.assertNotIn("computed on the CPU", out)                # every expert fits the two cards
         self.assertEqual(setup.choices_from_config(next(self.t.glob("strata-nemotron-poly-bolt-*.json")))["family"],
                          "nemotron-bolt-poly")
+
+    def test_one_card_says_part_runs_on_the_cpu(self):
+        cards = [{"index": 0, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120",
+                  "driver": "580.97"}]
+        code, out, cfg = self.main(family="nemotron-bolt-poly", ram=128.0, cards=cards)
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertIn("computed on the CPU", out)
 
     def test_the_llama_server_familys_download_is_used(self):
         code, out, cfg = self.two_16(family="nemotron-bolt")
