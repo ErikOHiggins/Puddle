@@ -16,6 +16,8 @@
 // usage: poly_fattn_test   (exit 0: every case within kRoomBatch and kRoomDoubles, times max(1, largest result), of
 //        attend_batch() and the doubles)
 //        poly_fattn_test [dec] gqa16   the same checks with Ornith 122B's 32 heads / 2 KV heads
+//        poly_fattn_test dim128 gqa16  the prompt checks with heads of 128 values, the Nemotrons' shape (32 heads /
+//                                      2 KV heads); the decode kernel has no heads of 128
 //        poly_fattn_test dec   fdec_q8() and fdec_f16() (the decode kernel) against attend() and the doubles, up
 //                              to 170,000 rows; a token alone and with others, and from a position on the card,
 //                              to the bit
@@ -38,7 +40,8 @@ namespace {
 
 using namespace strata::poly;
 
-constexpr int kDim = 256, kKvHeads = 2, kWidth = kKvHeads * kDim, kMaxRows = 131072, kBatch = 1024;
+constexpr int kKvHeads = 2, kMaxRows = 131072, kBatch = 1024;
+int kDim = 256, kWidth = kKvHeads * 256;   // dim128 selects heads of 128 values (the Nemotrons)
 int kHeads = 16;   // gqa16 selects 32; the existing group-8 geometry remains the default
 constexpr size_t kScore = size_t(16) << 20;   // Qwen35's score_ (kScoreFloats)
 constexpr float kRoomBatch = 2e-2f, kRoomDoubles = 7.5e-3f;   // the bounds, as shares of the largest result (at least 1)
@@ -93,7 +96,7 @@ int check(cublasHandle_t blas, const Cache& K, const Cache& V, Kvq8 kq, Kvq8 vq,
           const uint16_t* vh, const std::vector<float>& q, const float* dq, float* score, float* awork,
           uint16_t* kwork, float* out, long long pos, int n, size_t fattn_floats) {
     const size_t cells = size_t(n) * kHeads * kDim;
-    const float scale = 1.f / 16.f;
+    const float scale = 1.f / std::sqrt((float) kDim);   // 1/16 for heads of 256
     const size_t halves = size_t(2048) * kWidth;
     cudaEvent_t e0, e1, e2, e3;
     cudaEventCreate(&e0), cudaEventCreate(&e1), cudaEventCreate(&e2), cudaEventCreate(&e3);
@@ -305,15 +308,23 @@ int main(int argc, char** argv) {
         const std::string arg(argv[i]);
         if (arg == "dec") decode = true;
         else if (arg == "gqa16") kHeads = 32;
+        else if (arg == "dim128") kDim = 128, kWidth = kKvHeads * 128;
         else {
-            std::fprintf(stderr, "usage: poly_fattn_test [dec] [gqa16]\n");
+            std::fprintf(stderr, "usage: poly_fattn_test [dec] [gqa16] [dim128]\n");
             return 2;
         }
     }
-    std::printf("query heads %d, KV heads %d, group %d\n", kHeads, kKvHeads, kHeads / kKvHeads);
+    std::printf("heads of %d values: query heads %d, KV heads %d, group %d\n", kDim, kHeads, kKvHeads,
+                kHeads / kKvHeads);
+    if (decode && kDim != 256) {
+        std::printf("the decode kernel has heads of 256 only\n");
+        return 2;
+    }
+    // shapes without a kernel: 24 heads (a group of 12), heads of 96 values, no KV heads, no scratch; the decode
+    // kernel for heads of 128
     if (fattn_fits(kDim, 24, kKvHeads, kBatch, kScore) ||
         fdec_fits(kDim, 24, kKvHeads, 1024, kScore) ||
-        fattn_fits(128, kHeads, kKvHeads, kBatch, kScore) ||
+        fattn_fits(96, kHeads, kKvHeads, kBatch, kScore) ||
         fdec_fits(128, kHeads, kKvHeads, 1024, kScore) ||
         fattn_fits(kDim, kHeads, 0, kBatch, kScore) ||
         fdec_fits(kDim, kHeads, 0, 1024, kScore) ||
@@ -333,8 +344,9 @@ int main(int argc, char** argv) {
         std::printf("no kernel for this card\n");
         return 1;
     }
-    // a batch whose results alone fill Qwen35's score_ (--prompt-batch 4096) is refused up front, not call by call
-    if (fattn_fits(kDim, kHeads, kKvHeads, 4096, kScore)) {
+    // a batch whose results alone fill the score_ (Qwen35's at --prompt-batch 4096) is refused up front, not call
+    // by call
+    if (size_t(4096) * kHeads * kDim >= kScore && fattn_fits(kDim, kHeads, kKvHeads, 4096, kScore)) {
         std::printf("FAIL: fattn_fits() takes a batch of 4096 rows in a scratch that cannot hold its results\n");
         return 1;
     }
@@ -358,7 +370,8 @@ int main(int argc, char** argv) {
     cublasSetMathMode(blas, CUBLAS_TENSOR_OP_MATH);
     int bad = 0;
     struct Case { long long pos; int n; size_t floats; };
-    // a few thousand keys a block: the batch's results (n * 4096 floats) and its metadata, then rows of 512 floats
+    // a few thousand keys a block: the batch's results (n * heads * dim floats) and its metadata, then rows of
+    // kv_heads * dim floats
     auto few = [](int n, int rows) {
         const int tile_tokens = 64 / (kHeads / kKvHeads);
         return size_t(n) * kHeads * (kDim + 4) + 64 + size_t(n + tile_tokens - 1) / tile_tokens + size_t(rows) * kWidth;

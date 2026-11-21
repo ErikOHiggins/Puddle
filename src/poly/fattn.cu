@@ -1,7 +1,7 @@
 // src/poly/fattn.cu - see the header.  The kernel is fattn_mma.cuh's, launched here in place of llama.cpp's
 // launch_fattn(): one CUDA block a tile of 64 query rows (8 tokens x 8 heads, or 4 x 16), attending to a whole
-// block of keys. The stream-k fixup is never needed; each tile leaves its softmax max and sum behind
-// (fattn_mma.cuh, change 2).
+// block of keys, for heads of 256 values (Qwen3.6) or 128 (the Nemotrons); the decode kernel below is for 256 only.
+// The stream-k fixup is never needed; each tile leaves its softmax max and sum behind (fattn_mma.cuh, change 2).
 #include "fattn.hpp"
 
 #if !defined(GGML_USE_HIP)
@@ -30,19 +30,19 @@ int grid(long long n, int per) { return (int) ((n + per - 1) / per); }
 
 // The launch's shape and shared memory as ggml_cuda_flash_attn_ext_mma_f16_case() works them out, for the
 // current card.  Ampere or later: on Turing the kernel has no 64-column tile.
-template <int Group>
+template <int D, int Group>
 Setup make_setup(int cc) {
     constexpr int kCols1 = kCols / Group, kCols2 = Group;
-    const auto kKernel = flash_attn_ext_f16<kD, kD, kCols1, kCols2, false, false, false>;
+    const auto kKernel = flash_attn_ext_f16<D, D, kCols1, kCols2, false, false, false>;
     Setup r;
     if (!GGML_CUDA_CC_IS_NVIDIA(cc) || !ampere_mma_available(cc)) return r;
-    const int nthreads = ggml_cuda_fattn_mma_get_nthreads(kD, kD, kCols, cc);
-    const int nbatch_K2 = ggml_cuda_fattn_mma_get_nbatch_K2(kD, kD, kCols, cc);
-    const int nbatch_V2 = ggml_cuda_fattn_mma_get_nbatch_V2(kD, kD, kCols, cc);
-    const int nbatch_combine = ggml_cuda_fattn_mma_get_nbatch_combine(kD, kD, kCols, cc);
-    const bool q_in_reg = ggml_cuda_fattn_mma_get_Q_in_reg(kD, kD, kCols, cc);
-    const int nstages = ggml_cuda_fattn_mma_get_nstages(kD, kD, kCols1, kCols2, cc);
-    r.nbatch_fa = ggml_cuda_fattn_mma_get_nbatch_fa(kD, kD, kCols, cc);
+    const int nthreads = ggml_cuda_fattn_mma_get_nthreads(D, D, kCols, cc);
+    const int nbatch_K2 = ggml_cuda_fattn_mma_get_nbatch_K2(D, D, kCols, cc);
+    const int nbatch_V2 = ggml_cuda_fattn_mma_get_nbatch_V2(D, D, kCols, cc);
+    const int nbatch_combine = ggml_cuda_fattn_mma_get_nbatch_combine(D, D, kCols, cc);
+    const bool q_in_reg = ggml_cuda_fattn_mma_get_Q_in_reg(D, D, kCols, cc);
+    const int nstages = ggml_cuda_fattn_mma_get_nstages(D, D, kCols1, kCols2, cc);
+    r.nbatch_fa = ggml_cuda_fattn_mma_get_nbatch_fa(D, D, kCols, cc);
     r.nwarps = nthreads / WARP_SIZE;
     const int cols_per_warp = std::min(kCols, get_cols_per_warp(cc));
     // the tile's max and sum reach dst_meta only with one warp a query column (np == 1, fattn_mma.cuh change 2);
@@ -52,7 +52,7 @@ Setup make_setup(int cc) {
     const int stride_V = ggml_cuda_fattn_smem_swizzle::tile_stride(nbatch_V2, cc);
     const size_t kv1 = size_t(r.nbatch_fa) * std::max(stride_K, stride_V) * sizeof(half2);
     const size_t kv2 = size_t(r.nbatch_fa) * (stride_K + stride_V) * sizeof(half2);
-    const size_t q = size_t(kCols) * (kD / 2 + 4) * sizeof(half2);
+    const size_t q = size_t(kCols) * (D / 2 + 4) * sizeof(half2);
     const size_t mask = size_t(kCols1) * (r.nbatch_fa / 2 + 4) * sizeof(half2);
     const size_t combine = size_t(r.nwarps) * cols_per_warp * (nbatch_combine + 4) * sizeof(half2);
     const size_t kv = nstages <= 1 ? kv1 : kv2;
@@ -64,7 +64,7 @@ Setup make_setup(int cc) {
 
 // Each card's own, worked out the first time it asks: a layer split may put cards of different generations in one
 // process, and cudaFuncSetAttribute() holds for the current card only.
-template <int Group>
+template <int D, int Group>
 const Setup& setup() {
     static std::mutex mu;
     static Setup s[GGML_CUDA_MAX_DEVICES];
@@ -72,7 +72,7 @@ const Setup& setup() {
     const int d = ggml_cuda_get_device();
     std::lock_guard<std::mutex> lock(mu);
     if (!done[d]) {
-        s[d] = make_setup<Group>(ggml_cuda_info().devices[d].cc);
+        s[d] = make_setup<D, Group>(ggml_cuda_info().devices[d].cc);
         done[d] = true;
     }
     return s[d];
@@ -160,13 +160,13 @@ __global__ void merge_kernel(float* __restrict__ out, float2* __restrict__ meta,
 
 // The q8 cache (kq8, vq8) or the fp16 one (keys, vals): an fp16 cache's whole steps before pos are read where they
 // lie, in one block, and only the last block is copied into the scratch.
-template <int Group>
+template <int D, int Group>
 bool run(const float* q, Kvq8 kq8, Kvq8 vq8, const half* keys, const half* vals, int64_t pos, int n, float* out,
          int dim, int n_head, int kv_heads, float scale, float* scratch, size_t scratch_floats, void* stream) {
-    if (n <= 0 || !fattn_fits(dim, n_head, kv_heads, n, scratch_floats)) return false;
+    if (n <= 0 || dim != D || !fattn_fits(dim, n_head, kv_heads, n, scratch_floats)) return false;
     constexpr int kCols1 = kCols / Group;
-    const auto kKernel = flash_attn_ext_f16<kD, kD, kCols1, Group, false, false, false>;
-    const Setup& S = setup<Group>();
+    const auto kKernel = flash_attn_ext_f16<D, D, kCols1, Group, false, false, false>;
+    const Setup& S = setup<D, Group>();
     const int width = kv_heads * dim, tiles = grid(n, kCols1);
     const size_t heads = size_t(n) * n_head;
     const Layout L = layout<Group>(n, dim, n_head, kv_heads, S.nbatch_fa, scratch_floats);
@@ -543,37 +543,57 @@ size_t fdec_floats(int rows, int kv_heads) { return (size_t) grid(rows, kSplit) 
 
 }  // namespace
 
-bool fattn_fits(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats) {
-    if (dim != kD || kv_heads <= 0 || rows <= 0) return false;
+namespace {
+
+template <int D>
+bool fits_d(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats) {
     if (n_head == 8 * kv_heads) {
-        const Setup& S = setup<8>();
+        const Setup& S = setup<D, 8>();
         return S.ok && layout<8>(rows, dim, n_head, kv_heads, S.nbatch_fa, scratch_floats).rows > 0;
     }
     if (n_head == 16 * kv_heads) {
-        const Setup& S = setup<16>();
+        const Setup& S = setup<D, 16>();
         return S.ok && layout<16>(rows, dim, n_head, kv_heads, S.nbatch_fa, scratch_floats).rows > 0;
     }
+    return false;
+}
+
+// run() for this head size and group: 256 (Qwen3.6) or 128 (the Nemotrons), 8 or 16 heads a group
+bool run_any(const float* q, Kvq8 kq8, Kvq8 vq8, const half* keys, const half* vals, int64_t pos, int n, float* out,
+             int dim, int n_head, int kv_heads, float scale, float* scratch, size_t scratch_floats, void* stream) {
+    const bool g16 = n_head == 16 * kv_heads;
+    if (dim == 128)
+        return g16 ? run<128, 16>(q, kq8, vq8, keys, vals, pos, n, out, dim, n_head, kv_heads, scale, scratch,
+                                  scratch_floats, stream)
+                   : run<128, 8>(q, kq8, vq8, keys, vals, pos, n, out, dim, n_head, kv_heads, scale, scratch,
+                                 scratch_floats, stream);
+    return g16 ? run<kD, 16>(q, kq8, vq8, keys, vals, pos, n, out, dim, n_head, kv_heads, scale, scratch,
+                             scratch_floats, stream)
+               : run<kD, 8>(q, kq8, vq8, keys, vals, pos, n, out, dim, n_head, kv_heads, scale, scratch,
+                            scratch_floats, stream);
+}
+
+}  // namespace
+
+bool fattn_fits(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats) {
+    if (kv_heads <= 0 || rows <= 0) return false;
+    if (dim == kD) return fits_d<kD>(dim, n_head, kv_heads, rows, scratch_floats);
+    if (dim == 128) return fits_d<128>(dim, n_head, kv_heads, rows, scratch_floats);
     return false;
 }
 
 bool fattn_q8(const float* q, Kvq8 kq8, Kvq8 vq8, int64_t pos, int n, float* out, int dim, int n_head, int kv_heads,
               float scale, float* scratch, size_t scratch_floats, void* stream) {
     return kq8.codes && vq8.codes &&
-           (n_head == 16 * kv_heads
-                ? run<16>(q, kq8, vq8, nullptr, nullptr, pos, n, out, dim, n_head, kv_heads, scale, scratch,
-                          scratch_floats, stream)
-                : run<8>(q, kq8, vq8, nullptr, nullptr, pos, n, out, dim, n_head, kv_heads, scale, scratch,
-                         scratch_floats, stream));
+           run_any(q, kq8, vq8, nullptr, nullptr, pos, n, out, dim, n_head, kv_heads, scale, scratch, scratch_floats,
+                   stream);
 }
 
 bool fattn_f16(const float* q, const uint16_t* keys, const uint16_t* vals, int64_t pos, int n, float* out, int dim,
                int n_head, int kv_heads, float scale, float* scratch, size_t scratch_floats, void* stream) {
     return keys && vals &&
-           (n_head == 16 * kv_heads
-                ? run<16>(q, Kvq8{}, Kvq8{}, (const half*) keys, (const half*) vals, pos, n, out, dim, n_head,
-                          kv_heads, scale, scratch, scratch_floats, stream)
-                : run<8>(q, Kvq8{}, Kvq8{}, (const half*) keys, (const half*) vals, pos, n, out, dim, n_head,
-                         kv_heads, scale, scratch, scratch_floats, stream));
+           run_any(q, Kvq8{}, Kvq8{}, (const half*) keys, (const half*) vals, pos, n, out, dim, n_head, kv_heads,
+                   scale, scratch, scratch_floats, stream);
 }
 
 bool fdec_fits(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats) {

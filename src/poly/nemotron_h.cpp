@@ -4,6 +4,8 @@
 // ggml-cpu's ssm_conv and ssm_scan (the kernels: strata/poly/mamba2.hpp, tested by mamba2_test.cu).
 #include "nemotron_h.hpp"
 
+#include "fattn.hpp"
+
 #include "runtime.hpp"
 #include "strata/kernels/native_mmvq.hpp"
 #include "strata/poly/kernels.hpp"
@@ -12,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 
@@ -244,6 +247,16 @@ void NemotronH::assign_scratch() {
                         attend_group_floats(chunk_, n_head_, opt_.max_context, head_dim_));
     score_ = fbuf(score_n_);
     if (rows_ >= kStageRows) awork_ = fbuf(heads + heads / 2 + 1 + 3 * n * n_head_);   // a prompt batch's attention
+    // A prompt batch through llama.cpp's flash-attention kernel (fattn.hpp, heads of 128 since phase 2) in score_,
+    // where it fits (Ampere or later): opt-in with STRATA_FATTN=1 until it is measured on the Nemotrons; attend_batch()
+    // otherwise.  Its sums of the values run in halves (fattn_test.cu), so answers can part at near ties.
+    const char* fa = std::getenv("STRATA_FATTN");
+    if (rows_ >= kStageRows && fa && std::atoi(fa) == 1 && !fattn_) {   // assign_scratch() runs twice: say it once
+        fattn_ = fattn_fits(head_dim_, n_head_, max_kv_, rows_, score_n_);
+        std::fprintf(stderr, "strata-poly: STRATA_FATTN: prompt attention %s\n",
+                     fattn_ ? "through llama.cpp's flash-attention kernel"
+                            : "unchanged (no kernel for it on this card, or --prompt-batch too large for the scratch)");
+    }
     xr_ = fbuf(n * n_embd_);
     xrq_ = fbuf((n * kernels::native_q8_1_bytes(n_embd_) + sizeof(float) - 1) / sizeof(float));
     sho_ = fbuf(n * n_embd_);
@@ -336,10 +349,12 @@ void NemotronH::attn(Block& B, int64_t pos, int n) {
     store_f16(k_, B.keys, width, pos, n, st_);
     store_f16(v_, B.vals, width, pos, n, st_);
     const float scale = 1.f / std::sqrt((float) head_dim_);
-    if (n >= kStageRows)
-        attend_batch(blas_, q_, B.keys, B.vals, pos, n, score_, score_n_, awork_, att_, head_dim_, n_head_, B.n_kv,
-                     scale, st_);
-    else
+    if (n >= kStageRows) {
+        if (!(fattn_ && fattn_f16(q_, B.keys, B.vals, pos, n, att_, head_dim_, n_head_, B.n_kv, scale, score_,
+                                  score_n_, st_)))
+            attend_batch(blas_, q_, B.keys, B.vals, pos, n, score_, score_n_, awork_, att_, head_dim_, n_head_, B.n_kv,
+                         scale, st_);
+    } else
         attend_group(q_, B.keys, B.vals, pos, n, score_, chunk_, att_, head_dim_, n_head_, B.n_kv, scale, st_, 0, 0,
                      false, nullptr, 0, score_n_);
     lin(B.wo, att_, ao_, n);

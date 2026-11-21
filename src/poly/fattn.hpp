@@ -16,9 +16,9 @@
 
 namespace strata::poly {
 
-/// This build has the kernel for heads of `dim` values, n_head / kv_heads heads a group, on the current card, and a
-/// scratch of scratch_floats floats holds a block for batches of up to `rows` tokens: fattn_q8() and fattn_f16()
-/// then take every such batch.
+/// This build has the kernel for heads of `dim` values (256 or 128), n_head / kv_heads heads a group (8 or 16), on
+/// the current card, and a scratch of scratch_floats floats holds a block for batches of up to `rows` tokens:
+/// fattn_q8() and fattn_f16() then take every such batch.
 bool fattn_fits(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats);
 
 /// Causal attention of the n tokens from position pos to the cache rows 0 to pos + n - 1, as attend_batch()
