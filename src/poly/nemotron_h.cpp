@@ -34,6 +34,16 @@ int64_t of_layer(const MetaValue& v, int il) {
 // Super's files have the norms' epsilon under the LayerNorm's name alone; llama.cpp takes it for the RMS norms too.
 const Names kRmsEps{"attention.layer_norm_rms_epsilon", {"attention.layer_norm_epsilon", nullptr}};
 
+// A token's layers recorded once and replayed (Layer::fixed, Engine::run()): opt-in with STRATA_NEMOTRON_GRAPHS=1
+// until it is measured.  The attention then reads the position from the card while it is recorded (attn()).
+bool graphs_asked() {
+    static const bool asked = [] {
+        const char* v = std::getenv("STRATA_NEMOTRON_GRAPHS");
+        return v != nullptr && std::atoi(v) == 1;
+    }();
+    return asked;
+}
+
 }  // namespace
 
 const Names* NemotronH::meta_alias(const char* key) const {
@@ -129,6 +139,8 @@ void NemotronH::load_geometry() {
             need(of_layer(used, il) == n_used_, "the MoE layers use different numbers of experts");
     if (draft_) need(of_layer(used, n_layer_) == n_used_, "the draft block uses another number of experts");
     ln_eps_ = (float) num("attention.layer_norm_epsilon", rms_eps_);
+    if (graphs_asked() && opt_.graphs)
+        std::fprintf(stderr, "strata-poly: STRATA_NEMOTRON_GRAPHS: a token's layers are recorded once and replayed\n");
     const int latent = (int) num("moe_latent_size", 0.0);
     e_embd_ = latent > 0 ? latent : n_embd_;
     max_exp_cols_ = 0;
@@ -165,7 +177,8 @@ void NemotronH::load_layer(int il) {
     // the draft block: an attention sublayer (as an attention layer's), then routed experts after their own norm
     B.kind = il < n_layer_ ? kinds_[(size_t) il] : Kind::kMoe;
     L.attn_norm = f32("attn_norm.weight", n_embd_);
-    L.fixed = false;   // every launch made anew: the recordings come once the layers match llama.cpp
+    // recorded and replayed with STRATA_NEMOTRON_GRAPHS=1 (graphs_asked()); the draft block runs its launches anew
+    L.fixed = graphs_asked() && il < n_layer_;
     if (il == n_layer_) {
         for (const char* b : {"attn_q.bias", "attn_k.bias", "attn_v.bias", "attn_output.bias"}) none(b);
         B.n_kv = max_kv_;
@@ -423,13 +436,21 @@ void NemotronH::mamba(Block& B, int n) {
 }
 
 // The attention: no rotation; the keys and values into the caches; each head's softmax over the rows; the output.
+// A recorded launch (a token's or a window's, Engine::run()) takes the tokens' rows from what at_ holds, sized for
+// room() rows: it is recorded again when the rows outgrow that (head_key()).
 void NemotronH::attn(Block& B, int64_t pos, int n) {
+    const long long* at = recording_ ? at_ : nullptr;
     lin(B.wq, xn_, q_, n, xq_);
     lin(B.wk, xn_, k_, n, xq_);
     lin(B.wv, xn_, v_, n, xq_);
     const int width = B.n_kv * head_dim_;
-    store_f16(k_, B.keys, width, pos, n, st_);
-    store_f16(v_, B.vals, width, pos, n, st_);
+    if (at) {
+        store_f16_at(k_, B.keys, width, at, n, 0, st_);
+        store_f16_at(v_, B.vals, width, at, n, 0, st_);
+    } else {
+        store_f16(k_, B.keys, width, pos, n, st_);
+        store_f16(v_, B.vals, width, pos, n, st_);
+    }
     const float scale = 1.f / std::sqrt((float) head_dim_);
     if (n >= kStageRows) {
         if (!(fattn_ && fattn_f16(q_, B.keys, B.vals, pos, n, att_, head_dim_, n_head_, B.n_kv, scale, score_,
@@ -437,10 +458,10 @@ void NemotronH::attn(Block& B, int64_t pos, int n) {
             attend_batch(blas_, q_, B.keys, B.vals, pos, n, score_, score_n_, awork_, att_, head_dim_, n_head_, B.n_kv,
                          scale, st_);
     } else if (!(fdec_ && pos >= fdec_from_ &&
-                 fdec_f16(q_, B.keys, B.vals, pos, n, nullptr, 0, att_, head_dim_, n_head_, B.n_kv, scale, score_,
-                          score_n_, st_)))
+                 fdec_f16(q_, B.keys, B.vals, pos, n, at, at ? room(n) : 0, att_, head_dim_, n_head_, B.n_kv, scale,
+                          score_, score_n_, st_)))
         attend_group(q_, B.keys, B.vals, pos, n, score_, chunk_, att_, head_dim_, n_head_, B.n_kv, scale, st_, 0, 0,
-                     false, nullptr, 0, score_n_);
+                     false, at, at ? room(n) : 0, score_n_);
     lin(B.wo, att_, ao_, n);
 }
 
