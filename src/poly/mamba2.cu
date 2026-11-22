@@ -189,13 +189,18 @@ constexpr int MAX_GRID_Y = 65535;
 //   y  = (S^T C') + (X_dt M^T)       M = the causal decay between the chunk's tokens times C B^T
 //   S' = decay(chunk) S + B' X_dt^T  B' = B decayed to the chunk's end, C' = C decayed from its start
 // on the tensor cores, and only the state goes from chunk to chunk.  X_dt, B' and M are halves, as in llama.cpp;
-// its fp32 products (C B^T and S^T C') run in TF32, as its cuBLAS handle does (CUBLAS_TF32_TENSOR_OP_MATH).
+// its fp32 products (C B^T and S^T C') run in TF32, as its cuBLAS handle does (CUBLAS_TF32_TENSOR_OP_MATH).  One
+// change: the running sums of softplus(dt) the decays come from restart at each chunk (llama.cpp's run over the
+// whole ubatch), so a decay exp(A (cs_out - cs_in)) subtracts sums of at most 256 terms.  On echo, with Bolt's
+// 2,175-token parity prompt, the sums over 1,024 tokens took its first choices further from llama.cpp's (KL mean
+// 1.29e-2) than over 512 (7.01e-3).
 constexpr int SSD_CHUNK = 256;                                          // SSM_SSD_CHUNK_SIZE
 constexpr int SSD_DT_BLOCK = 256, SSD_DT_ITEMS = 32;                    // SSM_SSD_DT_BLOCK / _MAX_ITEMS
 constexpr int SSD_MIN_ROWS = 128, SSD_MAX_ROWS = SSD_DT_BLOCK * SSD_DT_ITEMS;   // SSM_SSD_MIN / MAX_TOKENS
+static_assert(SSD_DT_BLOCK == SSD_CHUNK, "a block of ssd_dt_kernel's scan is a chunk");
 
-// softplus(dt + dt_bias) of each token of head blockIdx.x, and its running sum over the call's tokens
-// (ssm_ssd_prepare_dt_kernel; the bias is llama.cpp's graph's ggml_add before the scan)
+// softplus(dt + dt_bias) of each token of head blockIdx.x, and its running sum from the start of the token's
+// chunk (ssm_ssd_prepare_dt_kernel, whose sum runs over the call; the bias is llama.cpp's graph's ggml_add)
 template <int BLOCK, int ITEMS>
 __global__ void ssd_dt_kernel(const float* __restrict__ dt, size_t dt_stride, const float* __restrict__ dt_bias,
                               float* __restrict__ dt_sp, float* __restrict__ csum, int n_head, int n_tok) {
@@ -215,17 +220,12 @@ __global__ void ssd_dt_kernel(const float* __restrict__ dt, size_t dt_stride, co
     }
     using Scan = cub::BlockScan<float, BLOCK>;
     __shared__ typename Scan::TempStorage tmp;
-    __shared__ float step;
-    float run = 0.0f;
-    for (int i = 0; i < items; ++i) {
+    for (int i = 0; i < items; ++i) {   // slab i is chunk i (BLOCK == SSD_CHUNK)
         float inc;
         Scan(tmp).InclusiveSum(v[i], inc);
         const int t = i * BLOCK + threadIdx.x;
-        if (t < n_tok) csum[size_t(t) * n_head + h] = run + inc;
-        if (threadIdx.x == BLOCK - 1) step = inc;
-        __syncthreads();
-        run += step;
-        __syncthreads();   // tmp and step are used again
+        if (t < n_tok) csum[size_t(t) * n_head + h] = inc;
+        __syncthreads();   // tmp is used again
     }
 }
 
@@ -241,8 +241,7 @@ __global__ void ssd_pre_kernel(const float* __restrict__ csum, const float* __re
     const int h = blockIdx.y, g = h / (n_head / n_group);
     const float ah = a[h];
     const int idx = blockIdx.x * BLOCK + threadIdx.x;
-    const float base = first > 0 ? csum[size_t(first - 1) * n_head + h] : 0.0f;
-    const float last = csum[size_t(first + len - 1) * n_head + h] - base;
+    const float last = csum[size_t(first + len - 1) * n_head + h];   // the sums start at the chunk
     const int n_xdt = len * head_dim;
     if (idx < n_xdt) {
         const int i = idx % head_dim, t = idx / head_dim;
@@ -252,7 +251,7 @@ __global__ void ssd_pre_kernel(const float* __restrict__ csum, const float* __re
     const int n_bw = d_state * len;
     if (idx < n_bw) {
         const int n = idx % d_state, t = idx / d_state;
-        const float c_t = csum[size_t(first + t) * n_head + h] - base;
+        const float c_t = csum[size_t(first + t) * n_head + h];
         const float* row = xbc + size_t(first + t) * row_n + d_inner;
         b_w[size_t(h) * n_bw + idx] = __float2half(row[size_t(g) * d_state + n] * __expf(ah * (last - c_t)));
         c_s[size_t(h) * n_bw + idx] = row[size_t(n_group + g) * d_state + n] * __expf(ah * c_t);
@@ -262,8 +261,8 @@ __global__ void ssd_pre_kernel(const float* __restrict__ csum, const float* __re
         const int t_out = idx % len, t_in = idx / len;
         half v = __float2half(0.0f);
         if (t_in <= t_out) {
-            const float co = csum[size_t(first + t_out) * n_head + h] - base;
-            const float ci = csum[size_t(first + t_in) * n_head + h] - base;
+            const float co = csum[size_t(first + t_out) * n_head + h];
+            const float ci = csum[size_t(first + t_in) * n_head + h];
             v = __float2half(__expf(ah * (co - ci)) * cb[size_t(g) * n_m + idx]);
         }
         m[size_t(h) * n_m + idx] = v;
@@ -275,9 +274,7 @@ __global__ void ssd_decay_kernel(float* __restrict__ state, const float* __restr
                                  const float* __restrict__ a, int per_head, int n_head, int first, int len) {
     const int h = blockIdx.y, idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= per_head) return;
-    const float base = first > 0 ? csum[size_t(first - 1) * n_head + h] : 0.0f;
-    const float last = csum[size_t(first + len - 1) * n_head + h] - base;
-    state[size_t(h) * per_head + idx] *= __expf(a[h] * last);
+    state[size_t(h) * per_head + idx] *= __expf(a[h] * csum[size_t(first + len - 1) * n_head + h]);
 }
 
 // y += D x (build_mamba2_layer's D term, after the scan)

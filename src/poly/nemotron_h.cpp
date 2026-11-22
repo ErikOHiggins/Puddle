@@ -258,13 +258,17 @@ void NemotronH::assign_scratch() {
     // cores) where it fits: opt-in with STRATA_MAMBA2_SSD=1 until it is measured; mamba2_scan() otherwise, and always
     // for a window of guesses (its snapshots).
     const char* ssd = std::getenv("STRATA_MAMBA2_SSD");
+    const bool ssd_asked = ssd && std::atoi(ssd) == 1;
+    const bool ssd_can = ssd_asked && rows_ > 128 && n_ssm_head_ > 0 && mamba2_ssd_fits(rows_, ssm_head_dim_);
     ssd_ = nullptr;
     ssd_n_ = 0;
-    if (ssd && std::atoi(ssd) == 1 && rows_ > 128 && n_ssm_head_ > 0 && mamba2_ssd_fits(rows_, ssm_head_dim_)) {
+    if (ssd_can) {
         ssd_n_ = mamba2_ssd_floats(rows_, n_ssm_head_, ssm_head_dim_, d_state_, n_group_);
-        ssd_ = fbuf(ssd_n_);
+        ssd_ = fbuf(ssd_n_);   // null on the first pass, which only counts
     }
-    if (ssd && std::atoi(ssd) == 1 && !ssd_said_) {   // assign_scratch() runs twice: say it once
+    // assign_scratch() runs twice, the first time only counting (fbuf() gives no buffer then): say it once, when
+    // the scratch is there, or when there is no SSD form at all
+    if (ssd_asked && !ssd_said_ && (ssd_ || !ssd_can)) {
         ssd_said_ = true;
         if (ssd_)
             std::fprintf(stderr, "strata-poly: STRATA_MAMBA2_SSD: a prompt batch's Mamba-2 scan in chunked products "
