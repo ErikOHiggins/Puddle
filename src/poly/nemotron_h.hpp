@@ -110,6 +110,8 @@ private:
     float *q_ = nullptr, *k_ = nullptr, *v_ = nullptr, *att_ = nullptr, *score_ = nullptr, *awork_ = nullptr;
     size_t score_n_ = 0;
     bool fattn_ = false;   ///< a prompt batch through fattn_f16() (fattn.hpp); STRATA_FATTN=0: never
+    bool fdec_ = false;    ///< a few tokens through fdec_f16() (fattn.hpp); STRATA_FDEC=1 asks for it
+    bool fdec_said_ = false;
     float* ssd_ = nullptr;   ///< mamba2_scan_ssd()'s scratch, null where it is not used (STRATA_MAMBA2_SSD=0)
     size_t ssd_n_ = 0;
     bool ssd_said_ = false;

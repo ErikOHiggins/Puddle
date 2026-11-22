@@ -4,7 +4,8 @@
 // to them with the causal mask computed from the positions, and the blocks' results are merged by their softmax max
 // and sum.  An fp16 cache is read where it lies, but for the last block (the batch's own rows), which is copied.
 // On wherever it fits unless STRATA_FATTN=0 (Qwen35::attn).  fdec_q8() and fdec_f16() are the decode side (a few
-// tokens), a kernel of this project's own: on from 4,096 positions unless STRATA_FDEC=0, from the first with =1.
+// tokens), a kernel of this project's own: on from 4,096 positions unless STRATA_FDEC=0, from the first with =1
+// (Qwen35::attn); for the Nemotrons' heads of 128 opt-in with STRATA_FDEC=1 (NemotronH::attn).
 //
 // Every call enqueues on the given CUDA stream.  Pointers are device pointers.
 #pragma once
@@ -31,9 +32,9 @@ bool fattn_q8(const float* q, Kvq8 kq8, Kvq8 vq8, int64_t pos, int n, float* out
 bool fattn_f16(const float* q, const uint16_t* keys, const uint16_t* vals, int64_t pos, int n, float* out, int dim,
                int n_head, int kv_heads, float scale, float* scratch, size_t scratch_floats, void* stream);
 
-/// This build has the decode kernel for this shape on the current card (Ampere or later), and a scratch of
-/// scratch_floats floats holds its splits for `rows` cache rows: fdec_q8() and fdec_f16() then take every call up to
-/// that many.
+/// This build has the decode kernel for this shape on the current card (Ampere or later): heads of `dim` values (256
+/// or 128), 8 or 16 heads a group; and a scratch of scratch_floats floats holds its splits for `rows` cache rows:
+/// fdec_q8() and fdec_f16() then take every call up to that many.
 bool fdec_fits(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats);
 
 /// attend() for n tokens (fewer than kStageRows) with no window, ring or `whole`, over a q8_0 cache: token t

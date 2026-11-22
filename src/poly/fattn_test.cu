@@ -16,8 +16,8 @@
 // usage: poly_fattn_test   (exit 0: every case within kRoomBatch and kRoomDoubles, times max(1, largest result), of
 //        attend_batch() and the doubles)
 //        poly_fattn_test [dec] gqa16   the same checks with Ornith 122B's 32 heads / 2 KV heads
-//        poly_fattn_test dim128 gqa16  the prompt checks with heads of 128 values, the Nemotrons' shape (32 heads /
-//                                      2 KV heads); the decode kernel has no heads of 128
+//        poly_fattn_test [dec] dim128 gqa16  the checks with heads of 128 values, the Nemotrons' shape (32 heads /
+//                                      2 KV heads)
 //        poly_fattn_test dec   fdec_q8() and fdec_f16() (the decode kernel) against attend() and the doubles, up
 //                              to 170,000 rows; a token alone and with others, and from a position on the card,
 //                              to the bit
@@ -316,16 +316,11 @@ int main(int argc, char** argv) {
     }
     std::printf("heads of %d values: query heads %d, KV heads %d, group %d\n", kDim, kHeads, kKvHeads,
                 kHeads / kKvHeads);
-    if (decode && kDim != 256) {
-        std::printf("the decode kernel has heads of 256 only\n");
-        return 2;
-    }
-    // shapes without a kernel: 24 heads (a group of 12), heads of 96 values, no KV heads, no scratch; the decode
-    // kernel for heads of 128
+    // shapes without a kernel: 24 heads (a group of 12), heads of 96 values, no KV heads, no scratch
     if (fattn_fits(kDim, 24, kKvHeads, kBatch, kScore) ||
         fdec_fits(kDim, 24, kKvHeads, 1024, kScore) ||
         fattn_fits(96, kHeads, kKvHeads, kBatch, kScore) ||
-        fdec_fits(128, kHeads, kKvHeads, 1024, kScore) ||
+        fdec_fits(96, kHeads, kKvHeads, 1024, kScore) ||
         fattn_fits(kDim, kHeads, 0, kBatch, kScore) ||
         fdec_fits(kDim, kHeads, 0, 1024, kScore) ||
         fattn_fits(kDim, kHeads, kKvHeads, kBatch, 0) ||
