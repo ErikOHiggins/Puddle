@@ -199,12 +199,12 @@ UD-Q3_K_XL quantization: Bolt's architecture at its full size. **Status: experim
 | Layers | 40 Mamba-2, 8 attention and 40 MoE, and an MTP block (89 blocks in the file) |
 | Experts | 512 routed experts a layer, 22 used for each token, in a latent of 1,024; a shared expert |
 | The file | 65,761,541,032 bytes in 3 parts: the routed experts 55.6 GB (IQ4_XS / IQ3_XXS / IQ2_XS up, IQ4_NL / Q2_0 down, 4.05 bits a weight), the rest 7.1 GB, the MTP block 3.1 GB |
-| Context | trained to 1,048,576 tokens; setup offers up to 256K (8,192 bytes of VRAM a token) |
+| Context | trained to 1,048,576 tokens; setup offers up to 256K (9,216 bytes of VRAM a token, the MTP block's rows among them) |
 | Tokenizer | the same Tekken pre-tokenizer as Bolt's (`tekken` in this GGUF) |
 
 `./setup.sh --setup --family nemotron-super` installs it like the other strata-poly models: the experts that do not
-fit the cards stay in RAM, about 47 GB beside two 16 GB cards and 62 GB beside one by setup's estimate. The engine
-starts with `--no-draft`: the MTP block, which guesses the next tokens ahead, does not run yet. Pictures go through
+fit the cards stay in RAM, about 51 GB beside two 16 GB cards and 65 GB beside one by setup's estimate, the MTP
+block's experts among them ([below](#the-mtp-block)). Pictures go through
 Puddle's image encoder (strata-vision), built from llama.cpp `08c252e22`'s mtmd, which has this encoder
 (`nemotron_omni`, the 1.7 GB `mmproj-BF16.gguf`, at its own limits: up to 3,407,872 pixels, as llama-server reads
 Bolt's). The server puts `<img>` and `</img>` around the picture's rows, as mtmd does; strata-poly reads them as text
@@ -237,6 +237,29 @@ Since 2026-11-22 the four layers whose down matrices are Q2_0 read a prompt in b
 ([BACKENDS.md](BACKENDS.md#q2_0-experts-in-mmq-tiles-on-by-default-strata_mmq_q2_00-turns-it-off)). Through Puddle
 on echo, Super then read 192.6 tokens/s at 2,520 tokens, 618.4 at 26,460 and 597.9 at 96,137, instead of 110.4, 202.6
 and 215.5; writing stayed at 17 to 20 tokens/s.
+
+### The MTP block
+
+Super's file has a block after its 88 layers that guesses the token after the next: the token's embedding and the
+model's output, an attention sublayer, 512 routed experts (Q8_0) and a shared expert, a LayerNorm and the model's
+output matrix. strata-poly runs it as llama.cpp `08c252e22`'s `graph_mtp` does (`NemotronH::draft_step()`), and checks
+its guesses in windows, so the answer is the model's: greedy, it wrote the same 256 tokens with the block and without
+it (`--no-draft`). The block's experts take 3.0 GB more RAM (measured: the engine's mapped file after loading, 48.06
+against 45.05 GiB) and its weights 0.2 GiB of VRAM (75 fewer experts in the cache).
+
+**Measured** on echo (two RTX 5060 Ti 16 GB), 2026-11-22, through Puddle (`puddle.py benchmark`, 256 tokens written):
+
+| Prompt | writing without | writing with | its guesses right | reading without | reading with |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 27 tokens | 18.3 tokens/s | 22.2 | 92% | | |
+| 2,520 tokens | 17.5 | 20.9 | 91% | 192.6 tokens/s | 191.4 |
+| 26,460 tokens | 19.5 | 23.6 | 85% | 618.4 | 614.6 |
+| about 96K tokens | 17.3 | 21.8 | 87% | 597.9 | 594.6 |
+
+(The longest prompt was 96,137 tokens without and 96,159 with: its text changed between the runs.) The block's
+rows for a prompt cost its reading 0.6%. The same day llama-server (llama.cpp `08c252e22`, its default fit of the
+two cards) wrote 256 tokens after a 32-token prompt at 18.41 tokens/s with its MTP head (`--spec-type draft-mtp`, 178
+of 230 guesses right) and 14.15 without; strata-poly, run alone on the same tokens, 24.73 and 21.04.
 
 ## Nemotron 3.5 Bolt on strata-poly
 
@@ -290,7 +313,6 @@ and of a picture. strata-poly's FP4 rounding is a setting
 
 ## Not there yet
 
-- Super's MTP block.
 - strata-poly's speed on both: the recorded launches (CUDA graphs), writing at long context (the decode kernel has
   no heads of 128 yet), and guesses; Super's writing, with most of its experts on the processor.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not

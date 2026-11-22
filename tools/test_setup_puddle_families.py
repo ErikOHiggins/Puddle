@@ -238,6 +238,20 @@ class Bolt(unittest.TestCase):
         self.assertTrue(cfg["keepalive_events"])
         self.assertTrue((self.t / "strata-nemotron-bolt-24gb.json.bak").is_file())
 
+    def test_super_runs_its_mtp_block(self):
+        # Super's MTP block runs since 2026-11-22: setup run again over a config of before drops --no-draft, keeps
+        # the user's keys and the old file (.bak), and names the option it did not carry over
+        old = {"exe": "/x/engine-poly/strata-poly", "args": ["--model", "/x/m.gguf", "--no-draft"],
+               "model_name": "nemotron-3.5-super-ud-q3_k_xl", "port": 8080, "keepalive_events": True}
+        code, out, cfg = self.two_16(family="nemotron-super",
+                                     configs=(("strata-nemotron-super-ud-q3_k_xl.json", old),))
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertNotIn("--no-draft", cfg["args"])
+        self.assertTrue(cfg["keepalive_events"])
+        self.assertTrue((self.t / "strata-nemotron-super-ud-q3_k_xl.json.bak").is_file())
+        self.assertIn("engine options it had that this one has not (setup chooses those): --no-draft", out)
+        self.assertNotIn("--no-draft", setup.FAMILIES["nemotron-super"].get("args", []))
+
 
 class BoltOnLlamaServer(unittest.TestCase):
     """Nemotron 3.5 Bolt on llama-server (nemotron-bolt-llama, opt-in): llama-server compiled here for NVIDIA, NVIDIA's

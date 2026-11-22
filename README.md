@@ -27,7 +27,8 @@ All five are experimental. poolside's Laguna-S Q4_K_M keeps 8 of its 47 expert l
 processor every token, and it has a 1M-token rope where Unsloth's files have 262K; it has not been run yet.
 Both Nemotrons run on strata-poly, pictures too, and Bolt fits one 16 GB card there. `--family nemotron-bolt-llama`
 runs Bolt's file on llama.cpp's `llama-server` instead, which setup compiles, as a second model beside it (opt-in).
-Super's MTP block, which guesses the next tokens ahead, does not run yet ([docs/NEMOTRON.md](docs/NEMOTRON.md)).
+Super's MTP block guesses the next tokens ahead, which made its writing 19 to 26% faster on echo
+([docs/NEMOTRON.md](docs/NEMOTRON.md#the-mtp-block)).
 
 Which models Puddle offers: open-weight models whose license puts no restriction on their use, OpenMDW first (both
 Lagunas and both Nemotrons are OpenMDW-1.1), with Apache 2.0 where a gap needs filling (Gemma 4, which reads

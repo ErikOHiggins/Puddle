@@ -264,7 +264,7 @@ FAMILIES = {
     # the file's routed experts, 17,052,794,880 bytes.  vram_beside_gb: echo, one RTX 5060 Ti 16 GB (15.93 GiB) at a
     # 32K context, 7,913 of 13,824 experts in VRAM (8.9 GiB), the estimate's way; on both cards all 13,824 (15.9
     # GiB), with the image encoder too.  vision_vram_gb: Super's measurement of the same encoder (nemotron_omni, the
-    # same settings).  --no-draft: Bolt has no MTP block, and NemotronH no draft path yet.  Sampling: NVIDIA's recipe
+    # same settings).  --no-draft: Bolt has no MTP block.  Sampling: NVIDIA's recipe
     # as llama.cpp runs it (the card's "Recommended Sampling" temperature 1.0 and top_p 0.95, with llama.cpp's top_k
     # 40 and min_p 0.05 that its command leaves on).  "vision_default_yes": the pictures question defaults to yes, as
     # it did on llama-server (reading pictures is what Bolt is used for).
@@ -311,7 +311,15 @@ FAMILIES = {
     # Nemotron 3.5 Super VL 120B-A12B (NVIDIA; quantized by Unsloth): Bolt's architecture (nemotron_h_moe: Mamba-2,
     # attention and LatentMoE layers) at its full size, 512 experts a layer of which 22 are used, and an MTP block.  It
     # runs on strata-poly (src/poly/nemotron_h.cpp); on echo its first choices were llama.cpp's at 177 of 177 steps
-    # (tools/poly_parity.py, 2026-11-21).  Its MTP block does not run yet: the engine starts with --no-draft.  Pictures:
+    # (tools/poly_parity.py, 2026-11-21).  Its MTP block guesses ahead (NemotronH::draft_step(), llama.cpp's graph_mtp):
+    # through Puddle on echo, 2x RTX 5060 Ti 16 GB, 2026-11-22, Super wrote 22.2 / 20.9 / 23.6 / 21.8 tokens/s after
+    # prompts of 27 / 2,520 / 26,460 / 96,159 tokens with it and 18.3 / 17.5 / 19.5 / 17.3 the same day without
+    # (--no-draft), 85 to 92% of its guesses right, and read those prompts 0.6% slower (the block's rows); greedy, the
+    # CLI wrote the same 256 tokens either way.  arena_gb: the file's routed experts with the block's,
+    # 58,562,445,312 bytes (without them 55.6); there the engine's mapped file took 3.0 GiB more RAM with the block
+    # (/proc RssFile after loading, 48.06 against 45.05 GiB).  row_bytes: the 8 attention layers' rows and the block's.
+    # vram_beside_gb: 12.3 from echo's log at an 8K context, the estimate's way, and 0.2 more for the block (75
+    # fewer experts in VRAM, 8.8 -> 8.6 GiB on the second card at 256K).  Pictures:
     # strata-vision (llama.cpp 08c252e22's mtmd, nemotron_omni) at the encoder file's own limits (vision_max_tokens 0:
     # up to 3,407,872 pixels, as llama-server reads Bolt's).  vision_vram_gb: measured on echo at a 256K context, the
     # encoder warmed up at its largest picture before the engine started: 6,451 -> 5,735 experts in VRAM (16.6 -> 14.1
@@ -319,22 +327,21 @@ FAMILIES = {
     # vram_beside_gb: from echo's log, 17.1 GiB of experts on 2x RTX 5060 Ti 16 GB at an 8K context, the estimate's way.
     "nemotron-super": {"title": "Nemotron 3.5 Super", "by": "NVIDIA; quantized by Unsloth",
                        "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                       "about": "120B-A12B, reads pictures; a 66 GB file, ~62 GB of RAM beside a 16 GB card; runs on 2x "
+                       "about": "120B-A12B, reads pictures; a 66 GB file, ~65 GB of RAM beside a 16 GB card; runs on 2x "
                                 "RTX 5060 Ti 16 GB on the strata-poly engine",
                        "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"),
                        "file": "{q}/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-{q}-0000{i}-of-00003.gguf", "shards": 3,
                        "tag": "nemotron-super-", "name": "nemotron-3.5-super", "engine": "poly", "vision": True,
-                       "experimental": True, "metal": False, "ran_on_gb": 16, "row_bytes": 8192,
+                       "experimental": True, "metal": False, "ran_on_gb": 16, "row_bytes": 9216,
                        "mmproj_hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"), "mmproj": "mmproj-BF16.gguf",
                        "vision_gb": 1.7, "vision_vram_gb": 2.5, "vision_max_tokens": 0,
                        "contexts": [8192, 32768, 65536, 131072, 262144],
-                       "args": ["--no-draft"],
                        "license": "OpenMDW-1.1 (NVIDIA's): "
                                   "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
                        "models": {"UD-Q3_K_XL": {"about": "Unsloth Dynamic: IQ4_XS / IQ3_XXS / IQ2_XS up and IQ4_NL / "
                                                           "Q2_0 down experts, 4.05 bits a weight",
-                                                 "download_gb": 65.8, "ram_gb": 62, "arena_gb": 55.6,
-                                                 "vram_beside_gb": 12.3}},
+                                                 "download_gb": 65.8, "ram_gb": 65, "arena_gb": 58.6,
+                                                 "vram_beside_gb": 12.5}},
                        "sha256": {"NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00001-of-00003.gguf":
                                   (7874568, "b2a570b4fc2e2e0ef3657937d6d4689c5d9647125e5fe22e31426789cf4e02fa"),
                                   "NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00002-of-00003.gguf":
@@ -4278,7 +4285,7 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
         args += ["--conversation-cache-mib", str(conv)]
     if fam.get("kv"):                                  # the family's KV format (Laguna: q8_0, as it runs)
         args += ["--kv", fam["kv"]]
-    args += list(fam.get("args", []))                 # the family's own (Nemotron 3.5 Super: --no-draft for now)
+    args += list(fam.get("args", []))                 # the family's own (Nemotron 3.5 Bolt: --no-draft)
     if a.vram_reserve_mib is not None:
         args += ["--vram-reserve-mib", str(a.vram_reserve_mib)]
         ok(f"VRAM kept free for other programs: {a.vram_reserve_mib} MiB (--vram-reserve-mib; the expert cache takes "

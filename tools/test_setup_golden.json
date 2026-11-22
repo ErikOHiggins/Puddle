@@ -480,8 +480,7 @@
     "--expert-profile",
     "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
     "--conversation-cache-mib",
-    "auto",
-    "--no-draft"
+    "auto"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -514,8 +513,7 @@
     "--expert-profile",
     "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
     "--conversation-cache-mib",
-    "auto",
-    "--no-draft"
+    "auto"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -1158,8 +1156,7 @@
     "--max-context",
     "32768",
     "--expert-profile",
-    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
-    "--no-draft"
+    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -1194,8 +1191,7 @@
     "--max-context",
     "32768",
     "--expert-profile",
-    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
-    "--no-draft"
+    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -1846,8 +1842,7 @@
     "--max-context",
     "32768",
     "--expert-profile",
-    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
-    "--no-draft"
+    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -1882,8 +1877,7 @@
     "--max-context",
     "32768",
     "--expert-profile",
-    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
-    "--no-draft"
+    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -2472,8 +2466,7 @@
     "--expert-profile",
     "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
     "--conversation-cache-mib",
-    "auto",
-    "--no-draft"
+    "auto"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -2506,8 +2499,7 @@
     "--expert-profile",
     "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
     "--conversation-cache-mib",
-    "auto",
-    "--no-draft"
+    "auto"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -3008,8 +3000,7 @@
     "--expert-profile",
     "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
     "--conversation-cache-mib",
-    "auto",
-    "--no-draft"
+    "auto"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
@@ -3042,8 +3033,7 @@
     "--expert-profile",
     "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt",
     "--conversation-cache-mib",
-    "auto",
-    "--no-draft"
+    "auto"
    ],
    "cwd": "<T>",
    "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
