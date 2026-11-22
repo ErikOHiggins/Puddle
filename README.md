@@ -19,7 +19,7 @@ Puddle.
 | --- | --- | --- | --- |
 | **[Laguna-S 2.1](https://huggingface.co/poolside/Laguna-S-2.1)** | poolside; quantized by Unsloth | UD-Q3_K_XL (54 GB, the default), UD-Q4_K_XL (73 GB), poolside's own Q4_K_M (96 GB) | no |
 | **[Laguna-XS 2.1](https://huggingface.co/poolside/Laguna-XS-2.1)** | poolside | Q4_K_M (20 GB) | no |
-| **[Nemotron 3.5 Bolt 74B-A9B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF)** | NVIDIA | NVIDIA's own 2-bit file (22 GB) | yes |
+| **[Nemotron 3.5 Bolt 74B-A9B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF)** | NVIDIA; and Unsloth | NVIDIA's own 2-bit file (22 GB, the default), Unsloth's UD-Q5_K_XL (59 GB) | yes |
 | **[Nemotron 3.5 Super 120B-A12B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16)** | NVIDIA; quantized by Unsloth | UD-Q3_K_XL (66 GB) | yes |
 | **[Gemma 4 26B-A4B](https://huggingface.co/google/gemma-4-26B-A4B-it)** | Google; quantized by Unsloth | UD-Q3_K_M (13 GB, the default), UD-Q2_K_XL, UD-Q4_K_M, QAT-UD-Q4_K_XL | yes |
 

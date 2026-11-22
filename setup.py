@@ -67,6 +67,7 @@ HF_REVISIONS = {
     "unsloth/gemma-4-26B-A4B-it-GGUF": "c099eb48e663fd284577b04978a94ffccb261841",                     # 2026-10-05
     "unsloth/gemma-4-26B-A4B-it-qat-GGUF": "7b92b5b28818151e8669af2e45e88d6086f490dd",                 # 2026-10-26
     "nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF": "e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246",  # 2026-10-15
+    "unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF": "34841e360524d421c564cc3ed247aa04a865473b",      # 2026-10-16
     "unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF": "75a5829055f69a0359085ae6bbd0a81b60bc05c6",  # 2026-10-15
 }
 
@@ -267,11 +268,18 @@ FAMILIES = {
     # same settings).  --no-draft: Bolt has no MTP block.  Sampling: NVIDIA's recipe
     # as llama.cpp runs it (the card's "Recommended Sampling" temperature 1.0 and top_p 0.95, with llama.cpp's top_k
     # 40 and min_p 0.05 that its command leaves on).  "vision_default_yes": the pictures question defaults to yes, as
-    # it did on llama-server (reading pictures is what Bolt is used for).
+    # it did on llama-server (reading pictures is what Bolt is used for).  UD-Q5_K_XL: Unsloth's quantization (Q5_K /
+    # Q6_K up and Q6_K / Q8_0 down experts, the other weights at more bits than NVIDIA's file) from Unsloth's
+    # repository, with NVIDIA's image encoder: the one the 24GB size's folder has, or its own download of it.  On echo
+    # (2026-11-22) its first choices were llama.cpp's at 157 of 160 steps, the other three near ties
+    # (tools/poly_parity.py: short, code, chat, a 2,190-token text, a picture).  Its vram_beside_gb: one RTX 5060 Ti 16
+    # GB at 32K, 1,617 of 13,824 experts in VRAM (5.4 GiB); arena_gb: its routed experts, 50,288,885,760 bytes; ram_gb
+    # by setup's estimate.  vram_card_gb: on both cards at 32K it held 4,620 (15.5 GiB), so the two took 16.4 GiB
+    # beside the experts together (Super's second card takes 5.7 too).
     "nemotron-bolt": {"title": "Nemotron 3.5 Bolt", "by": "NVIDIA", "engine": "poly",
                       "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
                       "about": "74B-A9B, reads pictures; a 22 GB file, ~17 GB of RAM beside a 16 GB card, every expert "
-                               "on two",
+                               "on two; a larger size too",
                       "hf": hf("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF"),
                       "file": "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-{q}.gguf", "shards": 1,
                       "tag": "nemotron-bolt-", "name": "nemotron-3.5-bolt", "vision": True, "experimental": True,
@@ -279,15 +287,29 @@ FAMILIES = {
                       "mmproj_hf": hf("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF"),
                       "mmproj": "mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf", "vision_gb": 1.7,
                       "vision_vram_gb": 2.5, "vision_max_tokens": 0, "vision_default_yes": True,
-                      "contexts": [8192, 32768, 65536, 131072, 262144],
+                      "vram_card_gb": 5.8, "contexts": [8192, 32768, 65536, 131072, 262144],
                       "args": ["--no-draft"],
                       "license": "OpenMDW-1.1 (NVIDIA's): "
                                  "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF",
                       "models": {"24GB": {"about": "NVIDIA's own 2-bit file (quantization-aware trained)",
                                           "download_gb": 22.0, "ram_gb": 17, "arena_gb": 17.1,
-                                          "vram_beside_gb": 7.0}},
+                                          "vram_beside_gb": 7.0},
+                                 "UD-Q5_K_XL": {"about": "Unsloth Dynamic: Q5_K / Q6_K up and Q6_K / Q8_0 down "
+                                                         "experts, 6.08 bits a weight; most on the CPU beside 16 GB "
+                                                         "cards",
+                                                "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF"),
+                                                "file": "{q}/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-{q}-0000{i}"
+                                                        "-of-00003.gguf",
+                                                "shards": 3, "download_gb": 58.9, "ram_gb": 54, "arena_gb": 50.3,
+                                                "vram_beside_gb": 10.5}},
                       "sha256": {"NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf":
                                  (22018326528, "91d63363e782c8a3d5f4be42816eba8e0d42dd2530bd07a7d0d2dc440599af75"),
+                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00001-of-00003.gguf":
+                                 (7876064, "5bb0b06d303ccc6d4d0c8c230d5afd70600bf557059a4ba40c338e9451cd3033"),
+                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00002-of-00003.gguf":
+                                 (49594839136, "f634851a11898c88a6e3a7f162e7dbb6f018def08220e6ada7180a835ca3ec81"),
+                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00003-of-00003.gguf":
+                                 (9309916864, "a847a83a82152143b09dc66a3e397a372bc2d15cbd633cc0ce74efc566068213"),
                                  "mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf":
                                  (1733692736, "0ee891eadc7bf0cae6289b249c74eb1ef420534351f6ef8b64d49f0ca6a926b0")}},
     # Nemotron 3.5 Bolt on llama.cpp's llama-server, opt-in beside the family above ("engine": "llama-server"; the args
@@ -4170,6 +4192,15 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
     mmproj = models_dir / fam["mmproj"] if vision != "none" else None
     if mmproj is not None and a.gguf_dir and not mmproj.exists():
         mmproj = Path(a.models_dir) / ftag / mmproj.name
+    # a size from another repository that has no image encoder of its own (Unsloth's quants of Bolt) uses the family's,
+    # where another of its sizes keeps it (NVIDIA's, beside Bolt's 24GB file): not downloaded twice
+    if (mmproj is not None and not a.gguf_dir and not _sg and d.get("hf") and not d.get("mmproj_hf")
+            and not (mmproj.exists() and done(mmproj))):
+        for other in fam["models"]:
+            cand = Path(a.models_dir) / files_tag(fam, fam["tag"] + other, other) / fam["mmproj"]
+            if other != model and cand.exists() and done(cand):
+                mmproj = cand
+                break
     # user-supplied mmproj: accept any file with "mmproj" in the name
     if (mmproj is not None and not mmproj.is_file() and _sg):
         cands = list(models_dir.glob("*mmproj*"))

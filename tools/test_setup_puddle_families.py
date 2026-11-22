@@ -33,7 +33,7 @@ class Catalog(unittest.TestCase):
     def test_the_families_and_their_order(self):
         self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "nemotron-bolt", "nemotron-bolt-llama",
                                                 "nemotron-super", "gemma4"])
-        self.assertEqual(list(setup.family_models("nemotron-bolt")), ["24GB"])
+        self.assertEqual(list(setup.family_models("nemotron-bolt")), ["24GB", "UD-Q5_K_XL"])   # 24GB the default
         self.assertEqual(list(setup.family_models("laguna-s")), ["UD-Q3_K_XL", "UD-Q4_K_XL", "Q4_K_M"])
         self.assertEqual(list(setup.family_models("laguna-xs")), ["Q4_K_M"])
 
@@ -170,7 +170,8 @@ class Bolt(unittest.TestCase):
             self.assertEqual(llama[k], bolt[k], k)
         self.assertEqual((bolt["engine"], bolt["args"], llama["engine"]), ("poly", ["--no-draft"], "llama-server"))
         self.assertEqual(setup.POLY_GGUF_ARCHS["nemotron-bolt"], ("nemotron_h_moe",))
-        self.assertEqual(list(llama["models"]), list(bolt["models"]))
+        # llama-server keeps every layer on the cards: Bolt's 24GB file alone (UD-Q5_K_XL is 59 GB)
+        self.assertEqual(list(llama["models"]), ["24GB"])
         # the llama-server family's size is Bolt's: its folder; a size of Bolt's own (Unsloth's) has its own
         self.assertEqual(setup.files_tag(llama, "nemotron-llama-bolt-24GB", "24GB"), "nemotron-bolt-24GB")
         self.assertEqual(setup.files_tag(bolt, "nemotron-bolt-UD-Q4_K_XL", "UD-Q4_K_XL"), "nemotron-bolt-UD-Q4_K_XL")
@@ -193,6 +194,39 @@ class Bolt(unittest.TestCase):
                                           "https://huggingface.co" + pin + setup.FAMILIES["nemotron-bolt"]["mmproj"]])
         self.assertEqual(setup.choices_from_config(next(self.t.glob("strata-nemotron-bolt-*.json")))["family"],
                          "nemotron-bolt")
+
+    def test_unsloth_s_q5_comes_from_its_repository_with_bolt_s_encoder(self):
+        # UD-Q5_K_XL: Unsloth's repository at its pinned revision, a folder of its own, and NVIDIA's image encoder:
+        # downloaded into that folder when no other size has it, the 24GB size's when that is there
+        pin = "https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF/resolve/" \
+              "34841e360524d421c564cc3ed247aa04a865473b/UD-Q5_K_XL/"
+        names = [f"NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-0000{i}-of-00003.gguf" for i in (1, 2, 3)]
+        encoder = "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF/resolve/" \
+                  "e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246/" + setup.FAMILIES["nemotron-bolt"]["mmproj"]
+        code, out, cfg = self.two_16("--vision", "gpu", model="UD-Q5_K_XL")
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertEqual(self.downloads, [pin + n for n in names] + [encoder])
+        model = Path(arg(cfg, "--model"))
+        self.assertEqual((model.parent.parent.name, model.parent.name, model.name),
+                         ("nemotron-bolt-UD-Q5_K_XL", "UD-Q5_K_XL", names[0]))
+        self.assertEqual(Path(cfg["vision"]["mmproj"]).parent.name, "nemotron-bolt-UD-Q5_K_XL")
+        self.assertEqual(cfg["model_name"], "nemotron-3.5-bolt-ud-q5_k_xl")
+        self.assertIn("computed on the CPU", out)                   # most of its experts stay in RAM
+
+        # the 24GB size and its encoder first: the Q5 size takes that encoder and downloads none
+        for f in self.t.glob("models/nemotron-bolt-UD-Q5_K_XL/mmproj*"):
+            f.unlink()
+        code, out, _ = self.two_16("--vision", "gpu")
+        self.assertEqual(code, 0, out[-3000:])
+        self.downloads.clear()
+        code, out, cfg = self.two_16("--vision", "gpu", model="UD-Q5_K_XL")
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertEqual(self.downloads, [])
+        self.assertEqual(Path(cfg["vision"]["mmproj"]).parent.name, "nemotron-bolt-24GB")
+        # without pictures, as measured on echo's two cards at 32K: 15.5 GiB of experts (16.6 GB)
+        code, out, _ = self.two_16("--vision", "no", model="UD-Q5_K_XL")
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertIn("about 17 of", out)
 
     def test_pictures_are_on_unless_asked_off(self):
         code, out, cfg = self.two_16()                              # --yes: the question's default, yes for Bolt

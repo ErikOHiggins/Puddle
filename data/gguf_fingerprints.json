@@ -84,6 +84,25 @@
   ],
   "url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF/resolve/e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246/"
  },
+ "nemotron-bolt/UD-Q5_K_XL": {
+  "arch": "nemotron_h_moe",
+  "layers": 88,
+  "tensors": 763,
+  "bytes": 58904709120,
+  "expert_bytes": {
+   "Q5_K": 22391029760,
+   "Q6_K": 26338099200,
+   "Q8_0": 1559756800
+  },
+  "experts_bpw": 6.082,
+  "bpw": 6.364,
+  "files": [
+   "UD-Q5_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00001-of-00003.gguf",
+   "UD-Q5_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00002-of-00003.gguf",
+   "UD-Q5_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00003-of-00003.gguf"
+  ],
+  "url": "https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF/resolve/34841e360524d421c564cc3ed247aa04a865473b/UD-Q5_K_XL/"
+ },
  "nemotron-bolt-llama/24GB": {
   "arch": "nemotron_h_moe",
   "layers": 88,
@@ -263,6 +282,7 @@
    "Q8_0"
   ],
   "blk.N.ffn_down_shexp.weight": [
+   "BF16",
    "IQ2_XXS",
    "Q4_K",
    "Q5_K",
@@ -307,9 +327,11 @@
    "Q4_K"
   ],
   "blk.N.ffn_latent_down.weight": [
+   "BF16",
    "Q8_0"
   ],
   "blk.N.ffn_latent_up.weight": [
+   "BF16",
    "Q8_0"
   ],
   "blk.N.ffn_norm.weight": [
@@ -335,6 +357,7 @@
    "Q8_0"
   ],
   "blk.N.ffn_up_shexp.weight": [
+   "BF16",
    "IQ2_XXS",
    "Q4_K",
    "Q5_K",
@@ -399,6 +422,7 @@
   ],
   "blk.N.ssm_in.weight": [
    "Q6_K",
+   "Q8_0",
    "type#40"
   ],
   "blk.N.ssm_norm.weight": [
