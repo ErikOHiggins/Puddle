@@ -267,11 +267,17 @@ for a Python function that checks for primes (35 tokens). Each wrote up to 1,000
 strata-poly wrote 7% faster after the long prompt and 14% faster after the short one, and read the long prompt 25%
 slower. In all, the long request took about 26.5 s on strata-poly and 25.2 s on llama-server.
 
+Since then, a prompt's attention goes through llama.cpp's flash-attention kernel
+([BACKENDS.md](BACKENDS.md#flash-attention-for-prompt-reading-on-by-default-strata_fattn0-turns-it-off)): Bolt read
+a 96,851-token prompt at 2,021 tokens/s instead of 1,290 (llama-server 1,997), and a 26,460-token one at 2,090
+instead of 1,807 (llama-server 2,387). At 2,520 tokens it read 1,473 tokens/s, as before (llama-server 1,696).
+
 ## Not there yet
 
 - Super's MTP block.
-- strata-poly's speed on both: reading prompts (Bolt's 25% behind llama-server's, above), the recorded launches
-  (CUDA graphs), and guesses.
+- strata-poly's speed on both: reading prompts (Bolt's about 12% behind llama-server's up to 26K tokens, level at
+  97K; Super's 110 to 217 tokens/s, with most of its experts on the processor), the recorded launches (CUDA graphs),
+  writing at long context (the decode kernel has no heads of 128 yet), and guesses.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not
   download or use it.
 - On llama-server: `--vram-reserve-mib`, several requests at once, and replicas: llama-server is run with one slot.

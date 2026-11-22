@@ -248,14 +248,20 @@ void NemotronH::assign_scratch() {
     score_ = fbuf(score_n_);
     if (rows_ >= kStageRows) awork_ = fbuf(heads + heads / 2 + 1 + 3 * n * n_head_);   // a prompt batch's attention
     // A prompt batch through llama.cpp's flash-attention kernel (fattn.hpp, heads of 128 since phase 2) in score_,
-    // where it fits (Ampere or later): opt-in with STRATA_FATTN=1 until it is measured on the Nemotrons; attend_batch()
-    // otherwise.  Its sums of the values run in halves (fattn_test.cu), so answers can part at near ties.
+    // where it fits (Ampere or later): on unless STRATA_FATTN=0; attend_batch() otherwise.  On echo (2x RTX 5060 Ti
+    // 16 GB) Bolt read a 96,851-token prompt at 2,021 tokens/s instead of 1,290 and a 26,460-token one at 2,090
+    // instead of 1,807; Super, whose experts are mostly on the CPU, the same within its run-to-run spread.  Its sums
+    // of the values run in halves (fattn_test.cu), so answers part from the old path's at near ties only
+    // (tools/poly_parity.py, docs/NEMOTRON.md).  A card it does not fit keeps the old path without a word, unless
+    // STRATA_FATTN=1 asked for it.
     const char* fa = std::getenv("STRATA_FATTN");
-    if (rows_ >= kStageRows && fa && std::atoi(fa) == 1 && !fattn_) {   // assign_scratch() runs twice: say it once
+    if (rows_ >= kStageRows && !(fa && std::atoi(fa) == 0) && !fattn_) {   // assign_scratch() runs twice: say it once
         fattn_ = fattn_fits(head_dim_, n_head_, max_kv_, rows_, score_n_);
-        std::fprintf(stderr, "strata-poly: STRATA_FATTN: prompt attention %s\n",
-                     fattn_ ? "through llama.cpp's flash-attention kernel"
-                            : "unchanged (no kernel for it on this card, or --prompt-batch too large for the scratch)");
+        if (fattn_ || (fa && std::atoi(fa) == 1))
+            std::fprintf(stderr, "strata-poly: STRATA_FATTN: prompt attention %s\n",
+                         fattn_ ? "through llama.cpp's flash-attention kernel (STRATA_FATTN=0 turns it off)"
+                                : "unchanged (no kernel for it on this card, or --prompt-batch too large for the "
+                                  "scratch)");
     }
     xr_ = fbuf(n * n_embd_);
     xrq_ = fbuf((n * kernels::native_q8_1_bytes(n_embd_) + sizeof(float) - 1) / sizeof(float));

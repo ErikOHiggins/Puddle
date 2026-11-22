@@ -2096,15 +2096,31 @@ section says otherwise.
 
 ### Flash attention for prompt reading (on by default; `STRATA_FATTN=0` turns it off)
 
-For qwen35moe models (upstream's Qwen3.6 and Ornith; heads of 256 values, 8 or 16 heads a group), on an
-Ampere or later NVIDIA card. A prompt batch's attention runs through llama.cpp's flash-attention kernel
-(`src/poly/fattn_mma.cuh`, a copy of `fattn-mma-f16.cuh` with the causal mask computed in the kernel) instead of
-two cuBLAS products and a softmax over scores in memory. Under the q8_0 cache (`--kv int8`) blocks of keys are
+For qwen35moe models (upstream's Qwen3.6 and Ornith; heads of 256 values, 8 or 16 heads a group) and, since
+phase 2, the Nemotrons (heads of 128, 16 heads a group), on an Ampere or later NVIDIA card. A prompt batch's
+attention runs through llama.cpp's flash-attention kernel (`src/poly/fattn_mma.cuh`, a copy of
+`fattn-mma-f16.cuh` with the causal mask computed in the kernel) instead of two cuBLAS products and a softmax
+over scores in memory. Under the q8_0 cache (`--kv int8`) blocks of keys are
 dequantized to fp16 in the attention's existing score scratch; an fp16 cache is read where it lies. No VRAM is added.
 The server logs `STRATA_FATTN: prompt attention through llama.cpp's flash-attention kernel`. Decode, Turing, HIP and
 other models keep the old path, and so does `STRATA_FATTN=0`. It was opt-in (`STRATA_FATTN=1`) until two cards beside
 the one below showed the same gain ([PolyStrata issue 107](https://github.com/simplexai-labs/PolyStrata/issues/107) and the measurement at
-the end of the next section).
+the end of the next section). For the Nemotrons it was opt-in until the measurement on echo below.
+
+**Measured** on echo (two RTX 5060 Ti 16 GB, i9-9900K, 128 GB DDR4-3200, Linux), 2026-11-21, through Puddle
+(`python puddle.py benchmark`, greedy, 256 tokens written), with and without it; llama-server (llama.cpp
+`08c252e22`) on the same file the same day:
+
+| Nemotron 3.5 Bolt, prompt read | without | with | llama-server |
+| --- | ---: | ---: | ---: |
+| 2,520 tokens | 1,479.5 tokens/s | 1,472.9 | 1,695.7 |
+| 26,460 tokens | 1,806.7 | 2,090.3 | 2,386.8 |
+| 96,851 tokens | 1,289.6 | 2,020.8 | 1,997.3 |
+
+Writing was the same within 1 token/s. Nemotron 3.5 Super, whose experts are mostly on the processor there, read
+the same prompts at 110 to 217 tokens/s either way: the differences (up to 7%) followed its expert cache's hit rate,
+not the kernel. With `tools/poly_parity.py` (llama.cpp choosing each token) both models' first choices parted from
+llama.cpp's at near ties only, as without it.
 
 **Measured** on an RTX 3070 8 GB (PCIe 3.0 x16; Ryzen 5 2600X, 32 GB DDR4-3200; Cyber-Tiel-Coder 35B-A3B
 UD-Q4_K_XL, `--max-context 262144`, q8_0 cache), a coding-agent conversation of growing turns: prompt read 1,437 -> 1,824 tokens/s at 32K of context, 749 -> 1,268 at 103K,

@@ -379,7 +379,9 @@ int main(int argc, char** argv) {
     const Case cases[] = {{0, 16, kScore},          {0, 64, kScore},          {0, kBatch, kScore},
                           {5, 37, kScore},          {1000, 517, kScore},      {4095, kBatch, kScore},
                           {30000, kBatch, kScore},  {30000, kBatch, few(kBatch, 4096)},
-                          {30001, 100, few(100, 160)}, {120000, kBatch, kScore}};
+                          {30001, 100, few(100, kDim == 128 ? 192 : 160)}, {120000, kBatch, kScore}};
+    // (the kernel takes keys in steps of 32 for heads of 256 and 64 for heads of 128, llama.cpp's nbatch_fa: a
+    // scratch must hold the batch's 100 rows and a step more, so 160 rows are 128 usable ones at 128 and refused)
     for (const Case& c : cases)
         bad += check(blas, K, V, kq, vq, nullptr, nullptr, q, dq, score, awork, kwork, out, c.pos, c.n, c.floats);
     // the fp16 cache in place of the q8 one, which is freed first: the card may be shared with a running server
