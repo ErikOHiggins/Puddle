@@ -254,6 +254,25 @@ void NemotronH::assign_scratch() {
     // of the values run in halves (fattn_test.cu), so answers part from the old path's at near ties only
     // (tools/poly_parity.py, docs/NEMOTRON.md).  A card it does not fit keeps the old path without a word, unless
     // STRATA_FATTN=1 asked for it.
+    // A prompt batch's Mamba-2 scan in llama.cpp's SSD form (mamba2_scan_ssd(): chunked products on the tensor
+    // cores) where it fits: opt-in with STRATA_MAMBA2_SSD=1 until it is measured; mamba2_scan() otherwise, and always
+    // for a window of guesses (its snapshots).
+    const char* ssd = std::getenv("STRATA_MAMBA2_SSD");
+    ssd_ = nullptr;
+    ssd_n_ = 0;
+    if (ssd && std::atoi(ssd) == 1 && rows_ > 128 && n_ssm_head_ > 0 && mamba2_ssd_fits(rows_, ssm_head_dim_)) {
+        ssd_n_ = mamba2_ssd_floats(rows_, n_ssm_head_, ssm_head_dim_, d_state_, n_group_);
+        ssd_ = fbuf(ssd_n_);
+    }
+    if (ssd && std::atoi(ssd) == 1 && !ssd_said_) {   // assign_scratch() runs twice: say it once
+        ssd_said_ = true;
+        if (ssd_)
+            std::fprintf(stderr, "strata-poly: STRATA_MAMBA2_SSD: a prompt batch's Mamba-2 scan in chunked products "
+                                 "(%.0f MiB of scratch)\n", ssd_n_ * 4.0 / (1 << 20));
+        else
+            std::fprintf(stderr, "strata-poly: STRATA_MAMBA2_SSD: unchanged (no SSD form for this card or "
+                                 "--prompt-batch)\n");
+    }
     const char* fa = std::getenv("STRATA_FATTN");
     if (rows_ >= kStageRows && !(fa && std::atoi(fa) == 0) && !fattn_) {   // assign_scratch() runs twice: say it once
         fattn_ = fattn_fits(head_dim_, n_head_, max_kv_, rows_, score_n_);
@@ -339,9 +358,13 @@ void NemotronH::mamba(Block& B, int n) {
     float* snap = snap_bits_ ? snap_at_ : nullptr;
     mamba2_conv(zxbcdt_ + d_inner_, row, B.conv_st, fp(B.conv), B.conv_b.p ? fp(B.conv_b) : nullptr, xbc_, conv_ch_,
                 n, st_, snap ? snap + (B.conv_st - state_) : nullptr, rec_n_, snap_bits_);
-    mamba2_scan(xbc_, zxbcdt_ + d_inner_ + conv_ch_, row, fp(B.dt_b), fp(B.a), fp(B.d), B.ssm_st, y_, n_ssm_head_,
-                ssm_head_dim_, d_state_, n_group_, n, st_, snap ? snap + (B.ssm_st - state_) : nullptr, rec_n_,
-                snap_bits_);
+    if (ssd_ && !snap && mamba2_ssd_fits(n, ssm_head_dim_))
+        mamba2_scan_ssd(xbc_, zxbcdt_ + d_inner_ + conv_ch_, row, fp(B.dt_b), fp(B.a), fp(B.d), B.ssm_st, y_,
+                        n_ssm_head_, ssm_head_dim_, d_state_, n_group_, n, blas_, ssd_, ssd_n_, st_);
+    else
+        mamba2_scan(xbc_, zxbcdt_ + d_inner_ + conv_ch_, row, fp(B.dt_b), fp(B.a), fp(B.d), B.ssm_st, y_,
+                    n_ssm_head_, ssm_head_dim_, d_state_, n_group_, n, st_,
+                    snap ? snap + (B.ssm_st - state_) : nullptr, rec_n_, snap_bits_);
     mamba2_out(y_, zxbcdt_, row, fp(B.norm), d_inner_, n_group_, n, rms_eps_, st_);
     lin(B.ssm_out, y_, ao_, n);
 }

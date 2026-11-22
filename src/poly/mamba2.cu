@@ -5,9 +5,16 @@
 #include "strata/poly/mamba2.hpp"
 
 #include <cuda_runtime.h>
+#if !defined(STRATA_USE_HIP)
+#include <cublas_v2.h>
+#include <cuda_fp16.h>
+
+#include <cub/block/block_scan.cuh>
+#endif
 
 #include <algorithm>
 #include <stdexcept>
+#include <string>
 
 namespace strata::poly {
 namespace {
@@ -176,6 +183,144 @@ inline cudaStream_t cs(void* stream) { return static_cast<cudaStream_t>(stream);
 inline int blocks(size_t n, int block) { return int((n + block - 1) / block); }
 constexpr int MAX_GRID_Y = 65535;
 
+#if !defined(STRATA_USE_HIP)
+// ---- the scan of a prompt batch in llama.cpp's SSD form (ggml-cuda ssm-scan.cu at 08c252e22, ssm_scan_ssd_f32_cuda):
+// the tokens in chunks of 256; within a chunk the scan is the products
+//   y  = (S^T C') + (X_dt M^T)       M = the causal decay between the chunk's tokens times C B^T
+//   S' = decay(chunk) S + B' X_dt^T  B' = B decayed to the chunk's end, C' = C decayed from its start
+// on the tensor cores, and only the state goes from chunk to chunk.  X_dt, B' and M are halves, as in llama.cpp;
+// its fp32 products (C B^T and S^T C') run in TF32, as its cuBLAS handle does (CUBLAS_TF32_TENSOR_OP_MATH).
+constexpr int SSD_CHUNK = 256;                                          // SSM_SSD_CHUNK_SIZE
+constexpr int SSD_DT_BLOCK = 256, SSD_DT_ITEMS = 32;                    // SSM_SSD_DT_BLOCK / _MAX_ITEMS
+constexpr int SSD_MIN_ROWS = 128, SSD_MAX_ROWS = SSD_DT_BLOCK * SSD_DT_ITEMS;   // SSM_SSD_MIN / MAX_TOKENS
+
+// softplus(dt + dt_bias) of each token of head blockIdx.x, and its running sum over the call's tokens
+// (ssm_ssd_prepare_dt_kernel; the bias is llama.cpp's graph's ggml_add before the scan)
+template <int BLOCK, int ITEMS>
+__global__ void ssd_dt_kernel(const float* __restrict__ dt, size_t dt_stride, const float* __restrict__ dt_bias,
+                              float* __restrict__ dt_sp, float* __restrict__ csum, int n_head, int n_tok) {
+    const int h = blockIdx.x;
+    const float bh = dt_bias[h];
+    const int items = (n_tok + BLOCK - 1) / BLOCK;
+    float v[ITEMS];
+    for (int i = 0; i < items; ++i) {
+        const int t = i * BLOCK + threadIdx.x;
+        float sp = 0.0f;
+        if (t < n_tok) {
+            const float x = dt[size_t(t) * dt_stride + h] + bh;
+            sp = x <= 20.0f ? log1pf(expf(x)) : x;
+            dt_sp[size_t(t) * n_head + h] = sp;
+        }
+        v[i] = sp;
+    }
+    using Scan = cub::BlockScan<float, BLOCK>;
+    __shared__ typename Scan::TempStorage tmp;
+    __shared__ float step;
+    float run = 0.0f;
+    for (int i = 0; i < items; ++i) {
+        float inc;
+        Scan(tmp).InclusiveSum(v[i], inc);
+        const int t = i * BLOCK + threadIdx.x;
+        if (t < n_tok) csum[size_t(t) * n_head + h] = run + inc;
+        if (threadIdx.x == BLOCK - 1) step = inc;
+        __syncthreads();
+        run += step;
+        __syncthreads();   // tmp and step are used again
+    }
+}
+
+// A chunk's inputs to the products for head blockIdx.y (ssm_ssd_pre_matmul_kernel): X_dt = x dt (head_dim
+// fastest), B' = B decayed to the chunk's end, C' = C decayed from its start (d_state fastest), and M = the decay
+// from token t_in to t_out times (C B^T)[t_out, t_in] for t_in <= t_out, 0 above (t_out fastest).
+template <int BLOCK>
+__global__ void ssd_pre_kernel(const float* __restrict__ csum, const float* __restrict__ dt_sp,
+                               const float* __restrict__ a, const float* __restrict__ xbc, size_t row_n, int d_inner,
+                               half* __restrict__ x_dt, half* __restrict__ b_w, float* __restrict__ c_s,
+                               const float* __restrict__ cb, half* __restrict__ m, int len, int head_dim, int n_head,
+                               int n_group, int d_state, int first) {
+    const int h = blockIdx.y, g = h / (n_head / n_group);
+    const float ah = a[h];
+    const int idx = blockIdx.x * BLOCK + threadIdx.x;
+    const float base = first > 0 ? csum[size_t(first - 1) * n_head + h] : 0.0f;
+    const float last = csum[size_t(first + len - 1) * n_head + h] - base;
+    const int n_xdt = len * head_dim;
+    if (idx < n_xdt) {
+        const int i = idx % head_dim, t = idx / head_dim;
+        const float xv = xbc[size_t(first + t) * row_n + size_t(h) * head_dim + i];
+        x_dt[size_t(h) * n_xdt + idx] = __float2half(xv * dt_sp[size_t(first + t) * n_head + h]);
+    }
+    const int n_bw = d_state * len;
+    if (idx < n_bw) {
+        const int n = idx % d_state, t = idx / d_state;
+        const float c_t = csum[size_t(first + t) * n_head + h] - base;
+        const float* row = xbc + size_t(first + t) * row_n + d_inner;
+        b_w[size_t(h) * n_bw + idx] = __float2half(row[size_t(g) * d_state + n] * __expf(ah * (last - c_t)));
+        c_s[size_t(h) * n_bw + idx] = row[size_t(n_group + g) * d_state + n] * __expf(ah * c_t);
+    }
+    const int n_m = len * len;
+    if (idx < n_m) {
+        const int t_out = idx % len, t_in = idx / len;
+        half v = __float2half(0.0f);
+        if (t_in <= t_out) {
+            const float co = csum[size_t(first + t_out) * n_head + h] - base;
+            const float ci = csum[size_t(first + t_in) * n_head + h] - base;
+            v = __float2half(__expf(ah * (co - ci)) * cb[size_t(g) * n_m + idx]);
+        }
+        m[size_t(h) * n_m + idx] = v;
+    }
+}
+
+// S *= the decay over the chunk, before S += B' X_dt^T (ssm_ssd_scale_state_kernel)
+__global__ void ssd_decay_kernel(float* __restrict__ state, const float* __restrict__ csum,
+                                 const float* __restrict__ a, int per_head, int n_head, int first, int len) {
+    const int h = blockIdx.y, idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= per_head) return;
+    const float base = first > 0 ? csum[size_t(first - 1) * n_head + h] : 0.0f;
+    const float last = csum[size_t(first + len - 1) * n_head + h] - base;
+    state[size_t(h) * per_head + idx] *= __expf(a[h] * last);
+}
+
+// y += D x (build_mamba2_layer's D term, after the scan)
+__global__ void ssd_d_kernel(float* __restrict__ y, const float* __restrict__ xbc, size_t row_n,
+                             const float* __restrict__ d, int head_dim, int d_inner, int row0) {
+    const size_t row = size_t(row0) + blockIdx.y;
+    const int c = blockIdx.x * blockDim.x + threadIdx.x;
+    if (c >= d_inner) return;
+    y[row * d_inner + c] += xbc[row * row_n + c] * d[c / head_dim];
+}
+
+// Where the pieces of the scratch lie (floats, each 16-byte aligned); the halves take half as many floats.
+struct SsdLayout {
+    size_t dt_sp = 0, csum = 0, cb = 0, c_s = 0, x_dt = 0, b_w = 0, m = 0, total = 0;
+};
+
+SsdLayout ssd_layout(int rows, int n_head, int head_dim, int d_state, int n_group) {
+    SsdLayout L;
+    size_t at = 0;
+    auto take = [&](size_t floats) {
+        const size_t p = at;
+        at += (floats + 3) & ~size_t(3);
+        return p;
+    };
+    const size_t C = SSD_CHUNK;
+    L.dt_sp = take(size_t(rows) * n_head);
+    L.csum = take(size_t(rows) * n_head);
+    L.cb = take(C * C * n_group);
+    L.c_s = take(size_t(d_state) * C * n_head);
+    L.x_dt = take((C * head_dim * n_head + 1) / 2);
+    L.b_w = take((size_t(d_state) * C * n_head + 1) / 2);
+    L.m = take((C * C * n_head + 1) / 2);
+    L.total = at;
+    return L;
+}
+
+void blas_ok(cublasStatus_t st, const char* what) {
+    if (st != CUBLAS_STATUS_SUCCESS)
+        throw std::runtime_error(std::string("mamba2_scan_ssd: ") + what + ": cuBLAS status " +
+                                 std::to_string((int) st));
+}
+#endif  // !STRATA_USE_HIP
+
 }  // namespace
 
 void mamba2_conv(const float* in, size_t in_stride, float* state, const float* w, const float* bias, float* out,
@@ -223,5 +368,97 @@ void mamba2_out(float* y, const float* z, size_t z_stride, const float* norm, in
         out_kernel<<<dim3(n_group, std::min(MAX_GRID_Y, rows - r)), 256, 0, cs(stream)>>>(y, z, z_stride, norm, d_inner,
                                                                                          d_inner / n_group, r, eps);
 }
+
+#if !defined(STRATA_USE_HIP)
+size_t mamba2_ssd_floats(int rows, int n_head, int head_dim, int d_state, int n_group) {
+    return ssd_layout(std::min(rows, SSD_MAX_ROWS), n_head, head_dim, d_state, n_group).total;
+}
+
+bool mamba2_ssd_fits(int rows, int head_dim) {
+    if (rows <= SSD_MIN_ROWS || rows > SSD_MAX_ROWS || head_dim % 8 != 0) return false;   // cuBLAS: 16-byte rows
+    int dev = 0, major = 0, minor = 0;
+    if (cudaGetDevice(&dev) != cudaSuccess ||
+        cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, dev) != cudaSuccess ||
+        cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, dev) != cudaSuccess) {
+        cudaGetLastError();
+        return false;
+    }
+    return major * 10 + minor >= 75;   // Turing or later, as llama.cpp
+}
+
+void mamba2_scan_ssd(const float* xbc, const float* dt, size_t dt_stride, const float* dt_bias, const float* a,
+                     const float* d, float* state, float* y, int n_head, int head_dim, int d_state, int n_group,
+                     int rows, void* blas, float* scratch, size_t scratch_floats, void* stream) {
+    if (n_group <= 0 || n_head % n_group != 0)
+        throw std::invalid_argument("mamba2_scan_ssd: the heads are a whole number a group");
+    if (!mamba2_ssd_fits(rows, head_dim))
+        throw std::invalid_argument("mamba2_scan_ssd: not for this call (mamba2_ssd_fits)");
+    const SsdLayout L = ssd_layout(rows, n_head, head_dim, d_state, n_group);
+    if (!blas || !scratch || L.total > scratch_floats)
+        throw std::invalid_argument("mamba2_scan_ssd: no cuBLAS or scratch");
+    const cudaStream_t s = cs(stream);
+    const cublasHandle_t hb = (cublasHandle_t) blas;
+    const int d_inner = n_head * head_dim, per_head = d_state * head_dim;
+    const size_t row_n = size_t(d_inner) + 2 * size_t(n_group) * d_state;
+    float* dt_sp = scratch + L.dt_sp;
+    float* csum = scratch + L.csum;
+    float* cb = scratch + L.cb;
+    float* c_s = scratch + L.c_s;
+    half* x_dt = (half*) (scratch + L.x_dt);
+    half* b_w = (half*) (scratch + L.b_w);
+    half* m = (half*) (scratch + L.m);
+    ssd_dt_kernel<SSD_DT_BLOCK, SSD_DT_ITEMS><<<n_head, SSD_DT_BLOCK, 0, s>>>(dt, dt_stride, dt_bias, dt_sp, csum,
+                                                                              n_head, rows);
+    const float one = 1.0f, zero = 0.0f;
+    const float* B0 = xbc + d_inner;
+    const float* C0 = xbc + d_inner + size_t(n_group) * d_state;
+    for (int first = 0; first < rows; first += SSD_CHUNK) {
+        const int len = std::min(SSD_CHUNK, rows - first);
+        // C B^T of each group: cb[t_out + t_in * len]
+        blas_ok(cublasGemmStridedBatchedEx(hb, CUBLAS_OP_T, CUBLAS_OP_N, len, len, d_state, &one,
+                                           C0 + size_t(first) * row_n, CUDA_R_32F, (int) row_n, d_state,
+                                           B0 + size_t(first) * row_n, CUDA_R_32F, (int) row_n, d_state, &zero,
+                                           cb, CUDA_R_32F, len, (long long) len * len, n_group,
+                                           CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT), "C B^T");
+        const int work = std::max({len * head_dim, d_state * len, len * len});
+        ssd_pre_kernel<256><<<dim3(blocks(size_t(work), 256), n_head), 256, 0, s>>>(
+            csum, dt_sp, a, xbc, row_n, d_inner, x_dt, b_w, c_s, cb, m, len, head_dim, n_head, n_group, d_state, first);
+        float* yc = y + size_t(first) * d_inner;
+        // y = S^T C' (the state's share), then y += X_dt M^T (the chunk's own tokens)
+        blas_ok(cublasGemmStridedBatchedEx(hb, CUBLAS_OP_T, CUBLAS_OP_N, head_dim, len, d_state, &one,
+                                           state, CUDA_R_32F, d_state, per_head,
+                                           c_s, CUDA_R_32F, d_state, (long long) d_state * len, &zero,
+                                           yc, CUDA_R_32F, d_inner, head_dim, n_head,
+                                           CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT), "S^T C'");
+        blas_ok(cublasGemmStridedBatchedEx(hb, CUBLAS_OP_N, CUBLAS_OP_T, head_dim, len, len, &one,
+                                           x_dt, CUDA_R_16F, head_dim, (long long) len * head_dim,
+                                           m, CUDA_R_16F, len, (long long) len * len, &one,
+                                           yc, CUDA_R_32F, d_inner, head_dim, n_head,
+                                           CUBLAS_COMPUTE_32F, CUBLAS_GEMM_DEFAULT), "X_dt M^T");
+        // S = decay S + B' X_dt^T
+        ssd_decay_kernel<<<dim3(blocks(size_t(per_head), 256), n_head), 256, 0, s>>>(state, csum, a, per_head, n_head,
+                                                                                    first, len);
+        blas_ok(cublasGemmStridedBatchedEx(hb, CUBLAS_OP_N, CUBLAS_OP_T, d_state, head_dim, len, &one,
+                                           b_w, CUDA_R_16F, d_state, (long long) d_state * len,
+                                           x_dt, CUDA_R_16F, head_dim, (long long) len * head_dim, &one,
+                                           state, CUDA_R_32F, d_state, per_head, n_head,
+                                           CUBLAS_COMPUTE_32F, CUBLAS_GEMM_DEFAULT), "B' X_dt^T");
+    }
+    for (int r = 0; r < rows; r += MAX_GRID_Y)
+        ssd_d_kernel<<<dim3(blocks(size_t(d_inner), 256), std::min(MAX_GRID_Y, rows - r)), 256, 0, s>>>(
+            y, xbc, row_n, d, head_dim, d_inner, r);
+    if (const cudaError_t e = cudaGetLastError(); e != cudaSuccess)
+        throw std::runtime_error(std::string("mamba2_scan_ssd: ") + cudaGetErrorString(e));
+}
+#else
+size_t mamba2_ssd_floats(int, int, int, int, int) { return 0; }
+
+bool mamba2_ssd_fits(int, int) { return false; }
+
+void mamba2_scan_ssd(const float*, const float*, size_t, const float*, const float*, const float*, float*, float*, int,
+                     int, int, int, int, void*, float*, size_t, void*) {
+    throw std::logic_error("mamba2_scan_ssd: no SSD form in a HIP build");
+}
+#endif  // !STRATA_USE_HIP
 
 }  // namespace strata::poly

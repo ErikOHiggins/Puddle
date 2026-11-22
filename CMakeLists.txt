@@ -507,7 +507,7 @@ if(STRATA_NATIVE_EXPERTS AND (STRATA_ENABLE_CUDA OR STRATA_ENABLE_HIP))
     add_executable(poly_mamba2_test src/poly/mamba2_test.cu src/poly/mamba2.cu)
     target_include_directories(poly_mamba2_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
                                                       ${_strata_gpu_include_directories})
-    target_link_libraries(poly_mamba2_test PRIVATE ${_strata_gpu_runtime_target})
+    target_link_libraries(poly_mamba2_test PRIVATE ${_strata_gpu_blas_target} ${_strata_gpu_runtime_target})
     add_test(NAME poly_mamba2_test COMMAND poly_mamba2_test)
     set_tests_properties(poly_mamba2_test PROPERTIES SKIP_RETURN_CODE 77)
   endif()

@@ -35,6 +35,19 @@ void mamba2_scan(const float* xbc, const float* dt, size_t dt_stride, const floa
                  const float* d, float* state, float* y, int n_head, int head_dim, int d_state, int n_group, int rows,
                  void* stream, float* snap = nullptr, size_t stride = 0, unsigned snaps = 0);
 
+/// mamba2_scan() for a prompt batch in llama.cpp's SSD form (ggml-cuda ssm-scan.cu): the tokens in chunks of 256,
+/// each chunk's scan as products on the tensor cores through cuBLAS (`blas`, on `stream`), only the state carried
+/// from chunk to chunk.  The same inputs, state and y as mamba2_scan(), no snapshots; x dt, the decayed B and the
+/// causal mask in halves and C B^T and the state's share in TF32, as llama.cpp, so y and the state differ from
+/// mamba2_scan()'s in their last bits.  scratch: mamba2_ssd_floats() floats for up to `rows` tokens.  CUDA only:
+/// mamba2_ssd_fits() says whether a call of `rows` tokens takes it here (more than 128 and at most 8,192 tokens,
+/// head_dim a multiple of 8, a Turing or later card); in a HIP build never.
+size_t mamba2_ssd_floats(int rows, int n_head, int head_dim, int d_state, int n_group);
+bool mamba2_ssd_fits(int rows, int head_dim);
+void mamba2_scan_ssd(const float* xbc, const float* dt, size_t dt_stride, const float* dt_bias, const float* a,
+                     const float* d, float* state, float* y, int n_head, int head_dim, int d_state, int n_group,
+                     int rows, void* blas, float* scratch, size_t scratch_floats, void* stream);
+
 /// The gate and the grouped RMS norm, in place: y = rms_norm(silu(z) * y) * norm over each of the n_group groups
 /// of d_inner / n_group values.  y: d_inner values a token, back to back.  z: d_inner values a token at
 /// z + row * z_stride (ssm_in's z part).  norm: d_inner (group after group).  d_inner / n_group: a multiple of 32.

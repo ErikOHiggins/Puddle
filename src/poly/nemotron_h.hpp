@@ -99,6 +99,9 @@ private:
     float *q_ = nullptr, *k_ = nullptr, *v_ = nullptr, *att_ = nullptr, *score_ = nullptr, *awork_ = nullptr;
     size_t score_n_ = 0;
     bool fattn_ = false;   ///< a prompt batch through fattn_f16() (fattn.hpp); STRATA_FATTN=0: never
+    float* ssd_ = nullptr;   ///< mamba2_scan_ssd()'s scratch (STRATA_MAMBA2_SSD=1), else null
+    size_t ssd_n_ = 0;
+    bool ssd_said_ = false;
     float* xr_ = nullptr;     ///< a MoE layer's normed input on the full width: its router's and shared expert's input
     void* xrq_ = nullptr;     ///< and its Q8_1 rows
     float* sho_ = nullptr;    ///< the shared expert's output, for layer_tail()

@@ -6,11 +6,17 @@
 //   2. the scan: 5 tokens, then 20, dt read with a stride as in ssm_in's rows; y and the state; snapshots after
 //      tokens 1 and 3;
 //   3. the gate and the grouped RMS norm;
-//   4. the scan at Nemotron 3.5 Bolt's sizes (128 heads of 64 values, d_state 128, 8 groups), 3 tokens.
+//   4. the scan at Nemotron 3.5 Bolt's sizes (128 heads of 64 values, d_state 128, 8 groups), 3 tokens;
+//   5. (CUDA) the scan of a prompt batch in llama.cpp's SSD form (mamba2_scan_ssd) against the same reference and
+//      against mamba2_scan: within 2e-2 of the largest result (its products take halves and TF32, as llama.cpp's),
+//      one chunk and a part, a chunk's edge, several chunks; then mamba2_scan goes on from its state.
 // usage: poly_mamba2_test   (exit 0: every case agrees; 1: a mismatch, printed; 77: no card)
 #include "strata/poly/mamba2.hpp"
 
 #include <cuda_runtime.h>
+#if !defined(STRATA_USE_HIP)
+#include <cublas_v2.h>
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -70,6 +76,23 @@ void same(const char* what, const std::vector<float>& got, const std::vector<flo
     const bool ok = worst <= 1e-4;
     std::printf("  %-44s %s (worst %.2e at %zu: %.7g vs %.7g)\n", what, ok ? "ok" : "MISMATCH", worst, at,
                 (double) got[at], (double) want[at]);
+    if (!ok) ++failures;
+}
+
+// Every value within `room` of the reference times its largest value (at least 1): for the SSD form, whose
+// products take halves and TF32.
+void close_to(const char* what, const std::vector<float>& got, const std::vector<float>& want, double room) {
+    double big = 1.0, worst = 0.0, sum = 0.0;
+    size_t at = 0;
+    for (float w : want) big = std::max(big, (double) std::fabs(w));
+    for (size_t i = 0; i < want.size(); ++i) {
+        const double e = std::fabs((double) got[i] - want[i]);
+        if (!(e <= worst)) worst = e, at = i;   // NaN counts as the worst
+        sum += e;
+    }
+    const bool ok = worst <= room * big;
+    std::printf("  %-44s %s (worst %.2e at %zu, results up to %.2f; mean %.1e)\n", what, ok ? "ok" : "MISMATCH",
+                worst, at, big, sum / (double) std::max<size_t>(want.size(), 1));
     if (!ok) ++failures;
 }
 
@@ -210,6 +233,44 @@ void scan_case(std::mt19937& g, int nh, int hd, int ds, int ng, int a_rows, int 
     same("its snapshot after token 3", std::vector<float>(s.begin() + state_n, s.end()), after[3]);
 }
 
+#if !defined(STRATA_USE_HIP)
+// mamba2_scan_ssd() over `rows` tokens, then mamba2_scan() over `tail` more from its state: y and the state against
+// the host reference and against mamba2_scan() over the same tokens.
+void ssd_case(std::mt19937& g, cublasHandle_t blas, int nh, int hd, int ds, int ng, int rows, int tail) {
+    std::printf("SSD scan (%d heads of %d values, d_state %d, %d groups, %d tokens, then %d by the scan)\n", nh, hd, ds,
+                ng, rows, tail);
+    if (!strata::poly::mamba2_ssd_fits(rows, hd)) {
+        std::puts("  no SSD form for this card or call: skipped");
+        return;
+    }
+    const int all = rows + tail;
+    const size_t d_inner = (size_t) nh * hd, row_n = d_inner + 2 * (size_t) ng * ds, dt_stride = nh + 13;
+    const auto xbc = rnd(g, (size_t) all * row_n, -1.f, 1.f), dt = rnd(g, (size_t) all * dt_stride, -3.f, 1.f),
+               dt_b = rnd(g, nh, -1.f, 1.f), d = rnd(g, nh, -1.f, 1.f), st0 = rnd(g, d_inner * ds, -1.f, 1.f);
+    std::vector<float> a = rnd(g, nh, -1.f, 2.f);
+    for (float& x : a) x = -std::exp(x);   // stored as -exp(A_log)
+    std::vector<float> want((size_t) all * d_inner), st = st0;
+    ref_scan(xbc, dt, dt_stride, dt_b, a, d, st, want, nh, hd, ds, ng, all);
+    Buf dx(xbc), ddt(dt), ddb(dt_b), da(a), dd(d);
+    // the fp32 scan over the same tokens
+    Buf st_scan(st0), y_scan((size_t) all * d_inner);
+    mamba2_scan(dx.p, ddt.p, dt_stride, ddb.p, da.p, dd.p, st_scan.p, y_scan.p, nh, hd, ds, ng, all, nullptr);
+    // the SSD form, then the scan from its state
+    const size_t floats = strata::poly::mamba2_ssd_floats(rows, nh, hd, ds, ng);
+    Buf scratch(floats), st_ssd(st0), y_ssd((size_t) all * d_inner);
+    strata::poly::mamba2_scan_ssd(dx.p, ddt.p, dt_stride, ddb.p, da.p, dd.p, st_ssd.p, y_ssd.p, nh, hd, ds, ng, rows,
+                                  blas, scratch.p, floats, nullptr);
+    if (tail)
+        mamba2_scan(dx.p + (size_t) rows * row_n, ddt.p + (size_t) rows * dt_stride, dt_stride, ddb.p, da.p, dd.p,
+                    st_ssd.p, y_ssd.p + (size_t) rows * d_inner, nh, hd, ds, ng, tail, nullptr);
+    const auto ys = y_ssd.get(), ss = st_ssd.get();
+    close_to("y against the reference", ys, want, 2e-2);
+    close_to("the state against the reference", ss, st, 2e-2);
+    close_to("y against mamba2_scan", ys, y_scan.get(), 2e-2);
+    close_to("the state against mamba2_scan", ss, st_scan.get(), 2e-2);
+}
+#endif
+
 void out_case(std::mt19937& g) {
     std::puts("gate and grouped RMS norm (1024 values, 2 groups, 7 tokens)");
     const int d_inner = 1024, ng = 2, rows = 7;
@@ -236,6 +297,18 @@ int main() {
     scan_case(g, 16, 64, 128, 2, 5, 20, true);
     out_case(g);
     scan_case(g, 128, 64, 128, 8, 3, 0, false);   // Bolt's sizes
+#if !defined(STRATA_USE_HIP)
+    cublasHandle_t blas = nullptr;
+    if (cublasCreate(&blas) != CUBLAS_STATUS_SUCCESS) {
+        std::puts("poly_mamba2_test: FAIL (cublasCreate)");
+        return 1;
+    }
+    ssd_case(g, blas, 16, 64, 128, 2, 300, 20);    // two chunks (256 + 44), then 20 tokens by the scan
+    ssd_case(g, blas, 128, 64, 128, 8, 129, 0);    // Bolt's sizes: part of one chunk
+    ssd_case(g, blas, 128, 64, 128, 8, 257, 0);    // a chunk's edge (256 + 1)
+    ssd_case(g, blas, 128, 64, 128, 8, 1000, 3);   // four chunks, then 3 tokens by the scan
+    cublasDestroy(blas);
+#endif
     if (failures) {
         std::printf("poly_mamba2_test: FAIL (%d)\n", failures);
         return 1;
