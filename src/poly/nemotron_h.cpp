@@ -255,11 +255,15 @@ void NemotronH::assign_scratch() {
     // (tools/poly_parity.py, docs/NEMOTRON.md).  A card it does not fit keeps the old path without a word, unless
     // STRATA_FATTN=1 asked for it.
     // A prompt batch's Mamba-2 scan in llama.cpp's SSD form (mamba2_scan_ssd(): chunked products on the tensor
-    // cores) where it fits: opt-in with STRATA_MAMBA2_SSD=1 until it is measured; mamba2_scan() otherwise, and always
-    // for a window of guesses (its snapshots).
+    // cores) where it fits: on unless STRATA_MAMBA2_SSD=0; mamba2_scan() otherwise, and always for a window of
+    // guesses (its snapshots).  On echo (2x RTX 5060 Ti 16 GB), with flash attention, Bolt read prompts of 2,520,
+    // 26,460 and 96,548 tokens at 1,548, 2,364 and 2,285 tokens/s instead of 1,473, about 2,100 and 2,021; Super,
+    // whose experts are mostly on the CPU, at the same speed.  The answers of both moved less than they do with a
+    // batch of 512 tokens instead of 1,024 (tools/poly_parity.py, docs/NEMOTRON.md).
     const char* ssd = std::getenv("STRATA_MAMBA2_SSD");
-    const bool ssd_asked = ssd && std::atoi(ssd) == 1;
-    const bool ssd_can = ssd_asked && rows_ > 128 && n_ssm_head_ > 0 && mamba2_ssd_fits(rows_, ssm_head_dim_);
+    const bool ssd_asked = ssd && std::atoi(ssd) == 1;   // then said where it cannot be used, too
+    const bool ssd_can = !(ssd && std::atoi(ssd) == 0) && rows_ > 128 && n_ssm_head_ > 0 &&
+                         mamba2_ssd_fits(rows_, ssm_head_dim_);
     ssd_ = nullptr;
     ssd_n_ = 0;
     if (ssd_can) {
@@ -267,12 +271,13 @@ void NemotronH::assign_scratch() {
         ssd_ = fbuf(ssd_n_);   // null on the first pass, which only counts
     }
     // assign_scratch() runs twice, the first time only counting (fbuf() gives no buffer then): say it once, when
-    // the scratch is there, or when there is no SSD form at all
-    if (ssd_asked && !ssd_said_ && (ssd_ || !ssd_can)) {
+    // the scratch is there, or when STRATA_MAMBA2_SSD=1 asked for it and there is no SSD form
+    if (!ssd_said_ && (ssd_ || (ssd_asked && !ssd_can))) {
         ssd_said_ = true;
         if (ssd_)
             std::fprintf(stderr, "strata-poly: STRATA_MAMBA2_SSD: a prompt batch's Mamba-2 scan in chunked products "
-                                 "(%.0f MiB of scratch)\n", ssd_n_ * 4.0 / (1 << 20));
+                                 "(%.0f MiB of scratch; STRATA_MAMBA2_SSD=0 turns it off)\n",
+                         ssd_n_ * 4.0 / (1 << 20));
         else
             std::fprintf(stderr, "strata-poly: STRATA_MAMBA2_SSD: unchanged (no SSD form for this card or "
                                  "--prompt-batch)\n");

@@ -2242,6 +2242,31 @@ number of tokens in a batch, the number of experts, how many are cached in VRAM 
 card with a different MMQ tile table (`mmq-config-*.cuh`) may gain more, less or nothing. Only gfx1010 was
 measured.
 
+### Mamba-2 scan in chunked products (on by default; `STRATA_MAMBA2_SSD=0` turns it off)
+
+For the Nemotrons (`nemotron_h_moe`), on a Turing or later NVIDIA card. A prompt batch of more than 128 tokens has
+its Mamba-2 scan in llama.cpp's SSD form (state-space duality, `ssm_scan_ssd_f32_cuda` in its `ssm-scan.cu`): the
+tokens in chunks of 256, each chunk's scan as four products on the tensor cores through cuBLAS, and only the state
+carried from chunk to chunk, instead of a warp a value walking every token (`src/poly/mamba2.cu`). As in llama.cpp,
+three of the products' inputs are halves and two products run in TF32; unlike it, the running sums of the time steps
+restart at each chunk. A window of guesses (which keeps snapshots), a short batch and HIP keep the walk. The scratch
+is about 47 MiB of VRAM a card for Bolt at a 1,024-token batch. The server logs `STRATA_MAMBA2_SSD: a prompt batch's
+Mamba-2 scan in chunked products`.
+
+**Measured** on echo (two RTX 5060 Ti 16 GB), 2026-11-22, through Puddle (`puddle.py benchmark`, flash attention on):
+
+| Prompt read | Bolt without | Bolt with | Super without | Super with |
+| --- | ---: | ---: | ---: | ---: |
+| 2,520 tokens | 1,472.9 tokens/s | 1,548.3 | 110.4 to 115.5 | 110.4 |
+| 26,460 tokens | 2,090.3 to 2,113.8 | 2,364.1 | 203.4 to 219.2 | 202.6 |
+| about 97K tokens | 2,020.8 | 2,285.2 | 216.9 to 217.2 | 215.5 |
+
+(The longest prompt was 96,851 tokens without and 96,548 with: its text changed between the runs.) Writing was the
+same. Super's experts are mostly on the processor there, which its prompt reading waits for. With
+`tools/poly_parity.py`, the first choices of both models parted from llama-server's at near ties only, and strata-poly's
+own top ten moved less from the walk to the chunks (KL mean 1.12e-2 for Bolt, 4.73e-2 for Super, on a 2,175-token
+text) than from a batch of 1,024 tokens to one of 512 with the walk (1.96e-2 and 5.43e-2).
+
 ### FP4 activations for NVFP4 prompt products (`STRATA_PREFILL_NVFP4=w4a4`)
 
 A prompt's products with NVFP4 weights (Nemotron 3.5 Bolt's Mamba-2 projections, `ssm_in` and `ssm_out`) round

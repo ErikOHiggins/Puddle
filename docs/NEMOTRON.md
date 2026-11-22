@@ -271,6 +271,9 @@ Since then, a prompt's attention goes through llama.cpp's flash-attention kernel
 ([BACKENDS.md](BACKENDS.md#flash-attention-for-prompt-reading-on-by-default-strata_fattn0-turns-it-off)): Bolt read
 a 96,851-token prompt at 2,021 tokens/s instead of 1,290 (llama-server 1,997), and a 26,460-token one at 2,090
 instead of 1,807 (llama-server 2,387). At 2,520 tokens it read 1,473 tokens/s, as before (llama-server 1,696).
+And a prompt's Mamba-2 scan runs as chunked products on the tensor cores, as llama.cpp's does
+([BACKENDS.md](BACKENDS.md#mamba-2-scan-in-chunked-products-on-by-default-strata_mamba2_ssd0-turns-it-off)): Bolt
+then read 1,548 tokens/s at 2,520 tokens, 2,364 at 26,460 and 2,285 at 96,548 (2026-11-22).
 
 Most of what is left is a choice of llama-server's: on an RTX 50 card it rounds the activations of NVFP4 products
 (Bolt's Mamba-2 projections) to FP4, strata-poly to 8 bits. Like for like, with llama-server made to round them to
@@ -283,9 +286,9 @@ and of a picture. strata-poly's FP4 rounding is a setting
 ## Not there yet
 
 - Super's MTP block.
-- strata-poly's speed on both: reading prompts (the Mamba-2 scan, about 200 ms of Bolt's 1.5 s for 2,175 tokens;
-  Super's 110 to 217 tokens/s, with most of its experts on the processor), the recorded launches (CUDA graphs),
-  writing at long context (the decode kernel has no heads of 128 yet), and guesses.
+- strata-poly's speed on both: reading prompts (Super's 110 to 217 tokens/s, with most of its experts on the
+  processor), the recorded launches (CUDA graphs), writing at long context (the decode kernel has no heads of 128
+  yet), and guesses.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not
   download or use it.
 - On llama-server: `--vram-reserve-mib`, several requests at once, and replicas: llama-server is run with one slot.
