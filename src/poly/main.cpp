@@ -21,8 +21,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <fstream>
 #include <functional>
 #include <iostream>
+#include <iterator>
 #include <mutex>
 #include <random>
 #include <stdexcept>
@@ -1141,6 +1143,8 @@ void usage() {
 #endif
     std::fprintf(stderr,
                  "usage: strata-poly --model FILE.gguf (--serve | --tokens ID,ID,... [--max-new N])\n"
+                 "  --tokens-file FILE     the prompt's ids from a file, as --tokens takes them (a long prompt's ids\n"
+                 "                         are more than one command-line argument may hold: 128 KiB under Linux)\n"
                  "  --max-context N        tokens the attention caches hold (default 8192)\n"
                  "  --threads N            CPU threads for the experts that are not in VRAM (default: 70%% of the usable\n"
                  "                         CPUs; all of them in a container with a CPU quota)\n"
@@ -1356,7 +1360,18 @@ int main(int argc, char** argv) {
         else if (a == "--top-p") s.top_p = std::strtof(val(), nullptr);
         else if (a == "--min-p") s.min_p = std::strtof(val(), nullptr);
         else if (a == "--seed") s.seed = std::strtoull(val(), nullptr, 10);
-        else if (a == "--tokens" || a == "--eos-ids" || a == "--follow") {
+        else if (a == "--tokens-file") {
+            const char* path = val();
+            std::ifstream f(path, std::ios::binary);
+            std::string s((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+            for (char& c : s)
+                if (c == '\n' || c == '\r' || c == '\t') c = ' ';
+            if (!f.good() && !f.eof()) s.clear();
+            if (!parse_ids(s.c_str(), ids)) {
+                std::fprintf(stderr, "strata-poly: --tokens-file %s: token ids separated by commas\n", path);
+                return 2;
+            }
+        } else if (a == "--tokens" || a == "--eos-ids" || a == "--follow") {
             if (!parse_ids(val(), a == "--tokens" ? ids : a == "--eos-ids" ? eos : follow)) {
                 std::fprintf(stderr, "strata-poly: %s takes token ids separated by commas\n", a.c_str());
                 return 2;
