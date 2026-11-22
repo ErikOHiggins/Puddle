@@ -3097,6 +3097,7 @@ void Engine::alloc() {
     const size_t n = (size_t) rows_;
     bool tiles = false, mixed_tiles = false;
     size_t one_expert = 0;
+    int q2_layers = 0, q2_tiled = 0;   // the layers with Q2_0 experts, and the ones with tiles (STRATA_MMQ_Q2_0)
     for (int il = 0; il < n_layer_; ++il) {
         Layer& L = layers_[(size_t) il];
         if (!L.moe) continue;
@@ -3109,7 +3110,13 @@ void Engine::alloc() {
         tiles = tiles || L.mmq;
         mixed_tiles = mixed_tiles || (L.mmq && L.mixed());
         one_expert = std::max(one_expert, L.gu_step + L.d_bytes);
+        const bool q2 = L.gu_type == GGML_TYPE_Q2_0 || L.u_type == GGML_TYPE_Q2_0 || L.d_type == GGML_TYPE_Q2_0;
+        q2_layers += q2;
+        q2_tiled += q2 && L.mmq;
     }
+    if (const char* v = std::getenv("STRATA_MMQ_Q2_0"); v && std::atoi(v) == 1 && q2_layers > 0)
+        std::fprintf(stderr, "strata-poly: STRATA_MMQ_Q2_0: %d of the %d layers with Q2_0 experts read a prompt batch "
+                             "through MMQ tiles\n", q2_tiled, q2_layers);
     if (tiles) mmq_ = std::make_unique<Mmq>();
 
     shared_scratch();   // the first pass only counts
