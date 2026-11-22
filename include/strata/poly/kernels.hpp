@@ -43,6 +43,9 @@ void scale_rows(float* y, int64_t ld, int width, int rows, const int32_t* place,
 void rms_norm(const float* x, const float* w, float* y, int n, int rows, float eps, void* stream, int y_stride = 0);
 /// The threads of a block that sums over n values (rms_norm()'s among them).
 int sum_threads(int n);
+/// LayerNorm over each of `rows` rows of n values, as ggml_norm() and a weight: y = (x - mean) / sqrt(var + eps) * w,
+/// with the mean and the variance over the row's values.  `w` may be null; y is not x.
+void layer_norm(const float* x, const float* w, float* y, int n, int rows, float eps, void* stream);
 
 /// Stores the tokens' rows (n values each) as fp16 from row `pos` of the layer's cache.
 void store_f16(const float* x, uint16_t* cache, int n, int64_t pos, int rows, void* stream);

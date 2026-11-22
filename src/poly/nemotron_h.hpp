@@ -13,6 +13,12 @@
 //   experts work in a latent width (LatentMoE: a projection down before them and up after them, Engine::e_embd_),
 //   each up and down alone with relu^2 between (Layer::relu2); the shared expert is the same on the full width.
 // Bolt's MoE layers each have their own number of experts and width (Layer::n_exp, n_ff).
+//
+// Super's file has a block after its layers that guesses the token after the next (its MTP head, llama.cpp's
+// graph_mtp in src/models/nemotron-h-moe.cpp): the token's embedding and the model's output, each RMS normed, side by
+// side through a projection (Engine::draft_input()); an attention sublayer; routed experts as a MoE layer's, after
+// their own norm (post_attention_norm); a LayerNorm, and the model's output matrix.  The block's output stands in for
+// the model's in the guesses after the first (draft_step()).
 #pragma once
 
 #include "engine.hpp"
@@ -35,6 +41,9 @@ protected:
     void load_layer(int il) override;
     void begin_pass() override;
     void check_draft_block() override;
+    void draft_step(int32_t token, int i) override;
+    void block_attend(int64_t pos, int n) override;
+    void block_rows(int64_t pos, int n) override;
     size_t recurrent_floats() const override;
     bool snaps_spread() const override { return true; }
     void alloc_caches() override;
@@ -70,6 +79,7 @@ private:
         int n_kv = 0;
         // MoE
         Dev lat_down, lat_up;
+        Dev post_norm;   ///< the draft block's: its routed experts' norm, after its attention
         std::vector<float> probs_b;   ///< the selection bias, n_expert_ of it: -inf past the layer's own experts
         float* probs_b_dev = nullptr;
     };
@@ -92,6 +102,7 @@ private:
     // MoE
     bool w_norm_ = false;
     float w_scale_ = 0;
+    float ln_eps_ = 0;            ///< the draft block's LayerNorm (attention.layer_norm_epsilon)
     int max_exp_cols_ = 0;        ///< the most experts of a layer whose experts are fewer than n_expert_
 
     // device scratch

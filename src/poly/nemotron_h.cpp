@@ -45,14 +45,19 @@ void NemotronH::begin_pass() {
     n_mamba_ = 0;
 }
 
+// The block that guesses ahead has what llama.cpp's graph_mtp reads: an attention sublayer, then routed experts.
 void NemotronH::check_draft_block() {
-    throw std::runtime_error("this model's block that guesses ahead (its MTP head) is not run yet; start it with "
-                             "--no-draft");
+    for (const char* n : {"attn_norm.weight", "attn_q.weight", "attn_k.weight", "attn_v.weight", "attn_output.weight",
+                          "post_attention_norm.weight", "ffn_gate_inp.weight", "ffn_up_exps.weight",
+                          "ffn_down_exps.weight", "ffn_up_shexp.weight", "ffn_down_shexp.weight"})
+        if (!tensor(n_layer_, n))
+            throw std::runtime_error(blk(n_layer_, n) + " is missing: the block that guesses ahead is not one this "
+                                     "engine runs; --no-draft loads the model without it");
 }
 
 void NemotronH::load_geometry() {
     load_shape();
-    if (draft_) check_draft_block();   // before the layers: the block would be one of them
+    if (draft_) check_draft_block();   // before the layers: the block is one of them
     auto find = [&](const char* key) { return meta_in(*gg_, key); };
     auto need = [](bool ok, const char* what) {
         if (!ok) throw std::runtime_error(std::string("unsupported model: ") + what);
@@ -84,6 +89,8 @@ void NemotronH::load_geometry() {
             max_kv_ = (int) k;
         }
     }
+    // the draft block's attention keeps rows as the model's attention layers do
+    if (draft_) need(max_kv_ > 0 && of_layer(kv, n_layer_) == max_kv_, "the draft block's key-value heads");
 
     // Mamba-2: ssm_in gives z (d_inner) | xBC (d_inner + 2 * groups * d_state) | dt (a value a head)
     d_conv_ = shape_i("ssm.conv_kernel");
@@ -120,12 +127,14 @@ void NemotronH::load_geometry() {
     for (int il = 0; il < n_layer_; ++il)
         if (kinds_[(size_t) il] == Kind::kMoe)
             need(of_layer(used, il) == n_used_, "the MoE layers use different numbers of experts");
+    if (draft_) need(of_layer(used, n_layer_) == n_used_, "the draft block uses another number of experts");
+    ln_eps_ = (float) num("attention.layer_norm_epsilon", rms_eps_);
     const int latent = (int) num("moe_latent_size", 0.0);
     e_embd_ = latent > 0 ? latent : n_embd_;
     max_exp_cols_ = 0;
     int fewest = n_expert_;
-    for (int il = 0; il < n_layer_; ++il) {
-        if (kinds_[(size_t) il] != Kind::kMoe) continue;
+    for (int il = 0; il < n_layer_ + (draft_ ? 1 : 0); ++il) {
+        if (il < n_layer_ && kinds_[(size_t) il] != Kind::kMoe) continue;
         const TensorInfo* g = tensor(il, "ffn_gate_inp.weight");
         need(g && g->shape.size() == 2 && (int64_t) g->shape[0] == n_embd_, "a MoE layer without its router");
         const int ne = (int) g->shape[1];
@@ -153,9 +162,20 @@ void NemotronH::load_layer(int il) {
     auto none = [&](const char* n) {
         if (tensor(il, n)) throw std::runtime_error(blk(il, n) + ": not supported yet");
     };
-    B.kind = kinds_[(size_t) il];
+    // the draft block: an attention sublayer (as an attention layer's), then routed experts after their own norm
+    B.kind = il < n_layer_ ? kinds_[(size_t) il] : Kind::kMoe;
     L.attn_norm = f32("attn_norm.weight", n_embd_);
     L.fixed = false;   // every launch made anew: the recordings come once the layers match llama.cpp
+    if (il == n_layer_) {
+        for (const char* b : {"attn_q.bias", "attn_k.bias", "attn_v.bias", "attn_output.bias"}) none(b);
+        B.n_kv = max_kv_;
+        B.wq = mat("attn_q.weight", n_embd_, (int64_t) n_head_ * head_dim_);
+        B.wk = mat("attn_k.weight", n_embd_, (int64_t) max_kv_ * head_dim_);
+        B.wv = mat("attn_v.weight", n_embd_, (int64_t) max_kv_ * head_dim_);
+        B.wo = mat("attn_output.weight", (int64_t) n_head_ * head_dim_, n_embd_);
+        B.post_norm = f32("post_attention_norm.weight", n_embd_);
+        L.ffn_norm = B.post_norm;
+    }
     switch (B.kind) {
     case Kind::kMamba:
         B.ssm_in = mat("ssm_in.weight", n_embd_, d_in_proj_);
@@ -219,8 +239,13 @@ void NemotronH::alloc_caches() {
     float* st = state_;
     for (int il = 0; il < (int) blocks_.size(); ++il) {
         Block& B = blocks_[(size_t) il];
-        if (!runs(il) || il >= n_layer_) continue;
-        if (B.kind == Kind::kMamba) {
+        if (!runs(il)) continue;
+        if (il >= n_layer_) {   // the draft block's attention
+            if (B.n_kv > 0) {
+                B.keys = (uint16_t*) kv_alloc(row, 1);
+                B.vals = (uint16_t*) kv_alloc(row, 1);
+            }
+        } else if (B.kind == Kind::kMamba) {
             B.conv_st = st;
             st += conv_n;
             B.ssm_st = st;
@@ -441,6 +466,56 @@ void NemotronH::layer_tail(Layer& L, int il, int n) {
     axpy(sho_, 1.f, ao_, n * n_embd_, true, st_);
     dbg("ffn_out", il, ao_, n_embd_);
     axpy(ao_, 1.f, r_, n * n_embd_, true, st_);
+}
+
+// The draft block's attention, from its normed input in xn_ / xq_ (Engine::draft_input()) into ao_; and its rows
+// alone, for tokens whose guesses are not needed.
+void NemotronH::block_attend(int64_t pos, int n) { attn(blocks_[(size_t) n_layer_], pos, n); }
+
+void NemotronH::block_rows(int64_t pos, int n) {
+    Block& B = blocks_[(size_t) n_layer_];
+    lin(B.wk, xn_, k_, n, xq_);
+    lin(B.wv, xn_, v_, n, xq_);
+    const int width = B.n_kv * head_dim_;
+    store_f16(k_, B.keys, width, pos, n, st_);
+    store_f16(v_, B.vals, width, pos, n, st_);
+}
+
+// One token through the draft block, at pos() + i, as llama.cpp's graph_mtp: the input (draft_input()); the
+// attention and its residual; the routed experts and the shared expert as a MoE layer's (layer_head() and
+// layer_tail()), after post_attention_norm; the LayerNorm, whose output stands in for the model's from the second
+// guess on; the output matrix.
+void NemotronH::draft_step(int32_t token, int i) {
+    Layer& L = layers_[(size_t) n_layer_];
+    Block& B = blocks_[(size_t) n_layer_];
+    float* own = hn_ + n_embd_;
+    float* x = draft_input(&token, pos_ + i, i == 0 ? hn_ : own, 1);
+    block_attend(pos_ + i, 1);
+    axpy(ao_, 1.f, x, n_embd_, true, st_);
+    kernels::native_add_rms_norm_q8_1(x, nullptr, fp(B.post_norm), xr_, xrq_, n_embd_, 1, rms_eps_,
+                                      sum_threads(n_embd_), st_);
+    if (e_embd_ != n_embd_) {
+        lin(B.lat_down, xr_, xn_, 1, xrq_);
+        kernels::native_quantize_q8_1(xn_, xq_, e_embd_, 1, st_);
+    } else {
+        ck(cudaMemcpyAsync(xn_, xr_, (size_t) n_embd_ * sizeof(float), cudaMemcpyDeviceToDevice, cs(st_)), "draft");
+        ck(cudaMemcpyAsync(xq_, xrq_, kernels::native_q8_1_bytes(n_embd_), cudaMemcpyDeviceToDevice, cs(st_)),
+           "draft");
+    }
+    moe_router(L, 1);
+    ck(cudaEventRecord((cudaEvent_t) ev_, cs(st_)), "router");
+    moe_shared(L, n_layer_, 1);
+    tok_ = nullptr;   // a guess's row has no token of the sequence
+    if (moe(L, n_layer_, 1)) moe_add(1);
+    if (e_embd_ != n_embd_) lin(B.lat_up, fo_, ao_, 1);
+    else ck(cudaMemcpyAsync(ao_, fo_, (size_t) n_embd_ * sizeof(float), cudaMemcpyDeviceToDevice, cs(st_)), "draft");
+    axpy(sho_, 1.f, ao_, n_embd_, true, st_);
+    axpy(ao_, 1.f, x, n_embd_, true, st_);
+    layer_norm(x, fp(d_head_), own, n_embd_, 1, ln_eps_, st_);
+    Dev head = output_;   // the matrix's first rows are the common tokens'
+    head.n_out = draft_rows();
+    lin(head, own, logits_, 1);
+    finish_logits(logits_, 1);
 }
 
 void NemotronH::output_rows(int first, int rows, float* h) {

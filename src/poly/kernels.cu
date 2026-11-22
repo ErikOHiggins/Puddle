@@ -253,6 +253,26 @@ __global__ void rms_norm_kernel(const float* __restrict__ x, const float* __rest
     for (int i = threadIdx.x; i < n; i += blockDim.x) yr[i] = w ? xr[i] * scale * w[i] : xr[i] * scale;
 }
 
+__global__ void layer_norm_kernel(const float* __restrict__ x, const float* __restrict__ w, float* __restrict__ y,
+                                  int n, float eps) {
+    __shared__ float part[32];
+    const float* xr = x + size_t(blockIdx.x) * n;
+    float* yr = y + size_t(blockIdx.x) * n;
+    float s = 0.0f;
+    for (int i = threadIdx.x; i < n; i += blockDim.x) s += xr[i];
+    const float mean = block_sum(s, part) / float(n);
+    float ss = 0.0f;
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+        const float d = xr[i] - mean;
+        ss += d * d;
+    }
+    const float scale = 1.0f / sqrtf(block_sum(ss, part) / float(n) + eps);
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+        const float v = (xr[i] - mean) * scale;
+        yr[i] = w ? v * w[i] : v;
+    }
+}
+
 __global__ void store_f16_kernel(const float* __restrict__ x, half* __restrict__ dst, int n) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) dst[i] = __float2half(x[i]);
@@ -2115,6 +2135,12 @@ void rms_norm(const float* x, const float* w, float* y, int n, int rows, float e
     rms_norm_kernel<<<rows, sum_threads(n), 0, cs(stream)>>>(x, w, y, n, eps, y_stride ? y_stride : n);
     if (const cudaError_t e = cudaGetLastError(); e != cudaSuccess)
         throw std::runtime_error(std::string("rms_norm: ") + cudaGetErrorString(e));
+}
+
+void layer_norm(const float* x, const float* w, float* y, int n, int rows, float eps, void* stream) {
+    layer_norm_kernel<<<rows, sum_threads(n), 0, cs(stream)>>>(x, w, y, n, eps);
+    if (const cudaError_t e = cudaGetLastError(); e != cudaSuccess)
+        throw std::runtime_error(std::string("layer_norm: ") + cudaGetErrorString(e));
 }
 
 void store_f16(const float* x, uint16_t* cache, int n, int64_t pos, int rows, void* stream) {
