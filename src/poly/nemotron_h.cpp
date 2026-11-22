@@ -34,12 +34,15 @@ int64_t of_layer(const MetaValue& v, int il) {
 // Super's files have the norms' epsilon under the LayerNorm's name alone; llama.cpp takes it for the RMS norms too.
 const Names kRmsEps{"attention.layer_norm_rms_epsilon", {"attention.layer_norm_epsilon", nullptr}};
 
-// A token's layers recorded once and replayed (Layer::fixed, Engine::run()): opt-in with STRATA_NEMOTRON_GRAPHS=1
-// until it is measured.  The attention then reads the position from the card while it is recorded (attn()).
-bool graphs_asked() {
-    static const bool asked = [] {
+// A token's layers recorded once and replayed (Layer::fixed, Engine::run()): on where no draft block runs, off
+// while one does; STRATA_NEMOTRON_GRAPHS=1 or =0 puts them on or off either way (-1: unset).  The attention reads
+// the position from the card while it is recorded (attn()).  On echo (2x RTX 5060 Ti 16 GB) Bolt wrote 5 to 8%
+// faster with them at every length, its UD-Q5_K_XL (most experts on the CPU) 2.3%; Super with its MTP block no
+// faster, and in 2 of 3 runs its guesses fell (docs/BACKENDS.md).
+int graphs_asked() {
+    static const int asked = [] {
         const char* v = std::getenv("STRATA_NEMOTRON_GRAPHS");
-        return v != nullptr && std::atoi(v) == 1;
+        return v == nullptr ? -1 : std::atoi(v) == 1 ? 1 : std::atoi(v) == 0 ? 0 : -1;
     }();
     return asked;
 }
@@ -139,8 +142,11 @@ void NemotronH::load_geometry() {
             need(of_layer(used, il) == n_used_, "the MoE layers use different numbers of experts");
     if (draft_) need(of_layer(used, n_layer_) == n_used_, "the draft block uses another number of experts");
     ln_eps_ = (float) num("attention.layer_norm_epsilon", rms_eps_);
-    if (graphs_asked() && opt_.graphs)
-        std::fprintf(stderr, "strata-poly: STRATA_NEMOTRON_GRAPHS: a token's layers are recorded once and replayed\n");
+    graphs_ = graphs_asked() == 1 || (graphs_asked() == -1 && !draft_);
+    if (opt_.graphs && graphs_asked() != 0)
+        std::fprintf(stderr, "strata-poly: STRATA_NEMOTRON_GRAPHS: %s\n",
+                     graphs_ ? "a token's layers are recorded once and replayed (STRATA_NEMOTRON_GRAPHS=0 turns it off)"
+                             : "a token's layers are launched anew while the MTP block runs (=1 records them)");
     const int latent = (int) num("moe_latent_size", 0.0);
     e_embd_ = latent > 0 ? latent : n_embd_;
     max_exp_cols_ = 0;
@@ -177,8 +183,8 @@ void NemotronH::load_layer(int il) {
     // the draft block: an attention sublayer (as an attention layer's), then routed experts after their own norm
     B.kind = il < n_layer_ ? kinds_[(size_t) il] : Kind::kMoe;
     L.attn_norm = f32("attn_norm.weight", n_embd_);
-    // recorded and replayed with STRATA_NEMOTRON_GRAPHS=1 (graphs_asked()); the draft block runs its launches anew
-    L.fixed = graphs_asked() && il < n_layer_;
+    // recorded and replayed where graphs_ (graphs_asked()); the draft block runs its launches anew
+    L.fixed = graphs_ && il < n_layer_;
     if (il == n_layer_) {
         for (const char* b : {"attn_q.bias", "attn_k.bias", "attn_v.bias", "attn_output.bias"}) none(b);
         B.n_kv = max_kv_;

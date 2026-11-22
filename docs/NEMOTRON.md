@@ -307,7 +307,9 @@ then read 1,548 tokens/s at 2,520 tokens, 2,364 at 26,460 and 2,285 at 96,548 (2
 positions of context an answer's attention goes through the tensor-core decode kernel
 ([BACKENDS.md](BACKENDS.md#tensor-core-decode-attention-on-by-default-from-4096-tokens-of-context-strata_fdec0-turns-it-off)):
 Bolt wrote 58.4 tokens/s after 26,460 tokens and 53.1 after 96,165 with it, instead of 53.7 and 40.4 (llama-server
-54.6 and 42.3).
+54.6 and 42.3). With its layers' launches recorded once and replayed
+([BACKENDS.md](BACKENDS.md#recorded-launches-for-the-nemotrons-on-without-the-mtp-block-strata_nemotron_graphs0-turns-it-off)),
+79.5 after 27 tokens, 65.6 after 2,520, 62.9 after 26,460 and 58.0 after 96,199.
 
 Most of what is left is a choice of llama-server's: on an RTX 50 card it rounds the activations of NVFP4 products
 (Bolt's Mamba-2 projections) to FP4, strata-poly to 8 bits. Like for like, with llama-server made to round them to
@@ -319,8 +321,8 @@ and of a picture. strata-poly's FP4 rounding is a setting
 
 ## Not there yet
 
-- strata-poly's speed on both: the recorded launches (CUDA graphs), and guesses; Super's writing, with most of its
-  experts on the processor.
+- strata-poly's speed on both: guesses, and Super's recorded launches (with its MTP block its guesses fell); Super's
+  writing, with most of its experts on the processor.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not
   download or use it.
 - On llama-server: `--vram-reserve-mib`, several requests at once, and replicas: llama-server is run with one slot.

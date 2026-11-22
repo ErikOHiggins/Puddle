@@ -103,6 +103,7 @@ private:
     bool w_norm_ = false;
     float w_scale_ = 0;
     float ln_eps_ = 0;            ///< the draft block's LayerNorm (attention.layer_norm_epsilon)
+    bool graphs_ = false;         ///< the layers' launches recorded and replayed (Layer::fixed)
     int max_exp_cols_ = 0;        ///< the most experts of a layer whose experts are fewer than n_expert_
 
     // device scratch

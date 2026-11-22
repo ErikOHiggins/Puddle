@@ -2130,6 +2130,31 @@ the arithmetic in doubles (up to 7.7e-3 on results up to 2.9) than the old path'
 both caches. Greedy answers part from the old path's after a few dozen characters, at near-ties where the old path
 also parts from itself between runs.
 
+### Recorded launches for the Nemotrons (on without the MTP block; `STRATA_NEMOTRON_GRAPHS=0` turns it off)
+
+A token's launches, some thirty a layer, cost the engine's thread more than they cost the card. They are recorded once
+as CUDA graphs and replayed with one call (`Layer::fixed`, `Engine::run()`), as for Qwen: a layer's part before
+and after its routed experts, and with every expert on the cards one graph for a card's layers. The attention reads
+the position from the card while it is recorded. A Nemotron whose MTP block runs (Super) launches its layers anew,
+unless `STRATA_NEMOTRON_GRAPHS=1`; `=0` turns them off for Bolt. The server logs `STRATA_NEMOTRON_GRAPHS: a token's
+layers are recorded once and replayed`.
+
+**Measured** on echo (two RTX 5060 Ti 16 GB), 2026-11-22. Nemotron 3.5 Bolt 24GB through Puddle (`puddle.py
+benchmark`, every expert on the cards):
+
+| Writing after | without | with | llama-server |
+| --- | ---: | ---: | ---: |
+| 27 tokens | 75.4 tokens/s | 79.5 | 61.1 |
+| 2,520 tokens | 61.2 | 65.6 | 60.4 |
+| 26,460 tokens | 58.3 | 62.9 | 54.6 |
+| 96,199 tokens | 54.2 | 58.0 | 42.3 |
+
+The guesses were the same either way. From the shell, 32 tokens then 256 written: Bolt 24GB 60.13 and 64.96
+tokens/s, the same 256 tokens; Unsloth's UD-Q5_K_XL of Bolt, 4,620 of its 13,824 experts on the cards, 29.51,
+29.46 and 29.51 without against 30.29, 30.11, 30.12 and 30.20 with. Super with its MTP block: 24.85 and 24.74
+tokens/s without (137 of 144 guesses right both times), 23.15 and 24.90 with (89 of 102, then 137 of 146), and the
+same tokens: its guesses are chosen from the rounds' times, which the recordings change.
+
 ### Tensor-core decode attention (on by default from 4,096 tokens of context; `STRATA_FDEC=0` turns it off)
 
 The decode side of the same layers: the few tokens of an answer's step (one, or a window of guesses). Once the cache
