@@ -340,7 +340,15 @@ it; NVIDIA's 24GB file stays the default. **Measured** on echo, 2026-11-22:
 
 At a 32K context one RTX 5060 Ti 16 GB held 1,617 of its 13,824 experts (5.4 GiB), and two held 4,620 (15.5 GiB),
 so most of its experts run on the processor. From the shell, 32 tokens then 256 written on the two cards, it wrote
-29.5 tokens/s (30.2 with its layers' launches recorded, the default since).
+29.5 tokens/s (30.2 with its layers' launches recorded, the default since). Through Puddle (`puddle.py benchmark`,
+setup's config: both cards, a 256K context, pictures on, 256 tokens written):
+
+| Prompt | read | first token after | writing |
+| --- | ---: | ---: | ---: |
+| 27 tokens | 31.6 tokens/s | 0.86 s | 29.2 tokens/s |
+| 2,520 tokens | 214.5 | 11.9 s | 28.1 |
+| 26,460 tokens | 768.0 | 31.9 s | 30.6 |
+| 95,812 tokens | 736.1 | 100.0 s | 29.6 |
 
 ## Not there yet
 
