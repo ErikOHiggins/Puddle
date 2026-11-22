@@ -2242,6 +2242,31 @@ number of tokens in a batch, the number of experts, how many are cached in VRAM 
 card with a different MMQ tile table (`mmq-config-*.cuh`) may gain more, less or nothing. Only gfx1010 was
 measured.
 
+### FP4 activations for NVFP4 prompt products (`STRATA_PREFILL_NVFP4=w4a4`)
+
+A prompt's products with NVFP4 weights (Nemotron 3.5 Bolt's Mamba-2 projections, `ssm_in` and `ssm_out`) round
+the activations to 8 bits by default: the weights are decoded to int8 and multiplied by Q8_1 rows
+(`src/poly/mmq_nvfp4.cu`). On an RTX 50 card, `STRATA_PREFILL_NVFP4=w4a4` rounds them to FP4 instead and multiplies
+FP4 by FP4 on the card's FP4 tensor cores, with llama.cpp's own rounding (`quantize_mmq_fp4_cuda`) and kernel. That
+is llama.cpp's default on RTX 50 for NVFP4 products: it rounds activations to FP4 unless the GGUF marks a tensor
+(`general.tensor_extra.prec_a4`; Bolt's file marks none), and `GGML_CUDA_MMQ_PREC=q8` makes it round them to 8 bits.
+The setting is read when the engine starts; it can be set in the model's `env` map. Off by default: it is faster,
+and its answers are further from the 8-bit ones.
+
+**Measured** on echo (two RTX 5060 Ti 16 GB), 2026-11-22, Bolt through Puddle (`puddle.py benchmark`): prompts
+of 2,520 and 26,460 tokens read at 1,573.5 and 2,316.3 tokens/s with it, 1,472.9 and 2,090 to 2,114 without
+(llama-server's default: 1,695.7 and 2,386.8). Its first choices against llama-server's (`tools/poly_parity.py`,
+llama.cpp choosing each token; a 2,175-token text and a picture), as KL means:
+
+| | llama-server, FP4 activations (its default) | llama-server, 8-bit (`GGML_CUDA_MMQ_PREC=q8`) |
+| --- | ---: | ---: |
+| strata-poly, 8-bit (the default) | text 2.04e-2, picture 1.23e-2 | text 5.67e-3, picture 8.44e-3 |
+| strata-poly, FP4 (`w4a4`) | text 4.04e-2, picture 1.51e-2 | not run |
+
+With the same 8-bit rounding the two programs agree most (all 64 first choices of both prompts the same). Two FP4
+paths agree less than an FP4 and an 8-bit one: rounding to 4 bits turns the programs' tiny differences before a
+product into whole steps of the rounding. Every difference in these runs was at a near tie.
+
 ## Adding a model of an architecture that is there
 
 Setup knows the files in the table above. Another file of one of these architectures runs after these steps:
