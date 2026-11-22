@@ -4,6 +4,8 @@
 // architecture shares but for the sinks.
 #include "laguna.hpp"
 
+#include "fattn.hpp"
+
 #include "runtime.hpp"
 #include "strata/poly/kernels.hpp"
 #include "strata/kernels/native_mmvq.hpp"
@@ -11,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 
@@ -277,6 +280,17 @@ void Laguna::assign_scratch() {
         work_halves_ = kQ8WorkRows * (size_t) n_kv_ * head_dim_;
         q8w_ = fbuf((2 * work_halves_ + 1) / 2);
     }
+    // The full layers' prompt batches through llama.cpp's flash-attention kernel (fattn.hpp: heads of 128 in groups
+    // of 6, 2 heads a tile), in score_: opt-in with STRATA_FATTN=1 until it is measured; attend_batch() otherwise,
+    // and for the window layers (said once: assign_scratch() runs twice).
+    const char* fa = std::getenv("STRATA_FATTN");
+    if (rows_ >= kStageRows && fa && std::atoi(fa) == 1 && full_heads > 0 && !fattn_said_) {
+        fattn_said_ = true;
+        fattn_ = fattn_fits(head_dim_, full_heads, n_kv_, rows_, score_n_);
+        std::fprintf(stderr, "strata-poly: STRATA_FATTN: the full layers' prompt attention %s\n",
+                     fattn_ ? "through llama.cpp's flash-attention kernel"
+                            : "unchanged (no kernel for it on this card, or --prompt-batch too large for the scratch)");
+    }
 }
 
 // A sequence's rows are the full layers': a window layer's are part of its state (save_layer()).  Under --kv q8_0
@@ -493,12 +507,16 @@ void Laguna::attn(Block& B, int64_t pos, int n) {
     const bool q8 = opt_.kv_format == KvFmt::kQ8_0;
     const Kvq8 kq = q8 ? Kvq8{B.k_codes, B.k_scales} : Kvq8{};
     const Kvq8 vq = q8 ? Kvq8{B.v_codes, B.v_scales} : Kvq8{};
-    if (n >= kStageRows)
-        attend_batch(blas_, q_, q8 ? nullptr : B.keys, q8 ? nullptr : B.vals, pos, n, score_, score_n_, awork_,
-                     att_, head_dim_, heads, n_kv_, scale, st_, window, ring, false, kq, vq,
-                     q8 ? (uint16_t*) q8w_ : nullptr, q8 ? (uint16_t*) q8w_ + work_halves_ : nullptr,
-                     q8 ? work_halves_ : 0);
-    else
+    if (n >= kStageRows) {
+        if (!(fattn_ && !B.swa &&
+              (q8 ? fattn_q8(q_, kq, vq, pos, n, att_, head_dim_, heads, n_kv_, scale, score_, score_n_, st_)
+                  : fattn_f16(q_, B.keys, B.vals, pos, n, att_, head_dim_, heads, n_kv_, scale, score_, score_n_,
+                              st_))))
+            attend_batch(blas_, q_, q8 ? nullptr : B.keys, q8 ? nullptr : B.vals, pos, n, score_, score_n_, awork_,
+                         att_, head_dim_, heads, n_kv_, scale, st_, window, ring, false, kq, vq,
+                         q8 ? (uint16_t*) q8w_ : nullptr, q8 ? (uint16_t*) q8w_ + work_halves_ : nullptr,
+                         q8 ? work_halves_ : 0);
+    } else
         attend_group(q_, q8 ? nullptr : B.keys, q8 ? nullptr : B.vals, pos, n, score_, chunk_, att_, head_dim_, heads,
                      n_kv_, scale, st_, window, ring, false, at,
                      !at ? 0 : B.swa ? std::min(window_ + n - 1, opt_.max_context) : room(n), score_n_, kq, vq);

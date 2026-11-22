@@ -18,6 +18,8 @@
 //        poly_fattn_test [dec] gqa16   the same checks with Ornith 122B's 32 heads / 2 KV heads
 //        poly_fattn_test [dec] dim128 gqa16  the checks with heads of 128 values, the Nemotrons' shape (32 heads /
 //                                      2 KV heads)
+//        poly_fattn_test dim128 gqa6   the prompt checks with Laguna's full layers' group of 6 (12 heads / 2 KV
+//                                      heads here; Laguna-S has 48 / 8); the decode kernel has no groups of 6
 //        poly_fattn_test dec   fdec_q8() and fdec_f16() (the decode kernel) against attend() and the doubles, up
 //                              to 170,000 rows; a token alone and with others, and from a position on the card,
 //                              to the bit
@@ -308,9 +310,10 @@ int main(int argc, char** argv) {
         const std::string arg(argv[i]);
         if (arg == "dec") decode = true;
         else if (arg == "gqa16") kHeads = 32;
+        else if (arg == "gqa6") kHeads = 12;
         else if (arg == "dim128") kDim = 128, kWidth = kKvHeads * 128;
         else {
-            std::fprintf(stderr, "usage: poly_fattn_test [dec] [gqa16] [dim128]\n");
+            std::fprintf(stderr, "usage: poly_fattn_test [dec] [gqa16 | gqa6] [dim128]\n");
             return 2;
         }
     }

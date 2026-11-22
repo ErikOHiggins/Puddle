@@ -1,5 +1,6 @@
 // src/poly/fattn.cu - see the header.  The kernel is fattn_mma.cuh's, launched here in place of llama.cpp's
-// launch_fattn(): one CUDA block a tile of 64 query rows (8 tokens x 8 heads, or 4 x 16), attending to a whole
+// launch_fattn(): one CUDA block a tile of 64 query rows (8 tokens x 8 heads, or 4 x 16, or 32 x 2 of a group of 6,
+// as llama.cpp takes Laguna's: the kernel finds the tile's key-value head from its first head), attending to a whole
 // block of keys, for heads of 256 values (Qwen3.6) or 128 (the Nemotrons); so is the decode kernel below.
 // The stream-k fixup is never needed; each tile leaves its softmax max and sum behind (fattn_mma.cuh, change 2).
 #include "fattn.hpp"
@@ -159,7 +160,8 @@ __global__ void merge_kernel(float* __restrict__ out, float2* __restrict__ meta,
 }
 
 // The q8 cache (kq8, vq8) or the fp16 one (keys, vals): an fp16 cache's whole steps before pos are read where they
-// lie, in one block, and only the last block is copied into the scratch.
+// lie, in one block, and only the last block is copied into the scratch.  Group: the heads a tile takes, the whole
+// group (8 or 16) or 2 of a group of 6; a CUDA block a tile of tokens and its heads.
 template <int D, int Group>
 bool run(const float* q, Kvq8 kq8, Kvq8 vq8, const half* keys, const half* vals, int64_t pos, int n, float* out,
          int dim, int n_head, int kv_heads, float scale, float* scratch, size_t scratch_floats, void* stream) {
@@ -208,7 +210,7 @@ bool run(const float* q, Kvq8 kq8, Kvq8 vq8, const half* keys, const half* vals,
         if (last) kv_max_kernel<kCols1><<<grid(tiles, 128), 128, 0, s>>>(kv_max, tiles, n, delta, nk, S.nbatch_fa);
         float* dst = b == 0 ? out : part;
         float2* meta = b == 0 ? ameta : pmeta;
-        kKernel<<<tiles * kv_heads, block, S.smem, s>>>(
+        kKernel<<<tiles * (n_head / Group), block, S.smem, s>>>(
             (const char*) q, (const char*) kb, (const char*) vb, nullptr, nullptr, last ? kv_max : nullptr, dst, meta,
             scale, 0.0f, 1.0f, 1.0f, 1u, 0.0f,
             dim, ne01, n_head, 1, nb01, nb02, nb01 * n,
@@ -558,6 +560,12 @@ namespace {
 
 template <int D>
 bool fits_d(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats) {
+    if constexpr (D == 128) {
+        if (n_head == 6 * kv_heads) {   // Laguna's full layers: 2 heads of the 6 a tile
+            const Setup& S = setup<D, 2>();
+            return S.ok && layout<2>(rows, dim, n_head, kv_heads, S.nbatch_fa, scratch_floats).rows > 0;
+        }
+    }
     if (n_head == 8 * kv_heads) {
         const Setup& S = setup<D, 8>();
         return S.ok && layout<8>(rows, dim, n_head, kv_heads, S.nbatch_fa, scratch_floats).rows > 0;
@@ -569,10 +577,14 @@ bool fits_d(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats) 
     return false;
 }
 
-// run() for this head size and group: 256 (Qwen3.6) or 128 (the Nemotrons), 8 or 16 heads a group
+// run() for this head size and group: 256 (Qwen3.6) or 128 (the Nemotrons; Laguna's groups of 6), 8 or 16 heads a
+// group
 bool run_any(const float* q, Kvq8 kq8, Kvq8 vq8, const half* keys, const half* vals, int64_t pos, int n, float* out,
              int dim, int n_head, int kv_heads, float scale, float* scratch, size_t scratch_floats, void* stream) {
     const bool g16 = n_head == 16 * kv_heads;
+    if (dim == 128 && n_head == 6 * kv_heads)
+        return run<128, 2>(q, kq8, vq8, keys, vals, pos, n, out, dim, n_head, kv_heads, scale, scratch,
+                           scratch_floats, stream);
     if (dim == 128)
         return g16 ? run<128, 16>(q, kq8, vq8, keys, vals, pos, n, out, dim, n_head, kv_heads, scale, scratch,
                                   scratch_floats, stream)
