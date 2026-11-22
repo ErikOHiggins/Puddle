@@ -252,6 +252,17 @@ class Bolt(unittest.TestCase):
         self.assertIn("engine options it had that this one has not (setup chooses those): --no-draft", out)
         self.assertNotIn("--no-draft", setup.FAMILIES["nemotron-super"].get("args", []))
 
+    def test_super_s_experts_in_vram_are_echo_s(self):
+        # echo, 2026-11-22, at a 32K context with the MTP block: 6.0 GiB of experts on one RTX 5060 Ti 16 GB (6.4 GB),
+        # 16.3 GiB on both (17.5 GB); setup's estimate with Super's vram_beside_gb and vram_card_gb says the same
+        code, out, cfg = self.two_16(family="nemotron-super")
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertIn("about 17 of", out)
+        one = [{"index": 0, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120", "driver": "580.97"}]
+        code, out, cfg = self.main(family="nemotron-super", ram=128.0, cards=one)
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertIn("about 6 of", out)
+
 
 class BoltOnLlamaServer(unittest.TestCase):
     """Nemotron 3.5 Bolt on llama-server (nemotron-bolt-llama, opt-in): llama-server compiled here for NVIDIA, NVIDIA's

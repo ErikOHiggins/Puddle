@@ -203,8 +203,10 @@ UD-Q3_K_XL quantization: Bolt's architecture at its full size. **Status: experim
 | Tokenizer | the same Tekken pre-tokenizer as Bolt's (`tekken` in this GGUF) |
 
 `./setup.sh --setup --family nemotron-super` installs it like the other strata-poly models: the experts that do not
-fit the cards stay in RAM, about 51 GB beside two 16 GB cards and 65 GB beside one by setup's estimate, the MTP
-block's experts among them ([below](#the-mtp-block)). Pictures go through
+fit the cards stay in RAM, about 51 GB beside two 16 GB cards and 62 GB beside one by setup's estimate (about 3
+GB more with pictures on the GPU), the MTP block's experts among them ([below](#the-mtp-block)). On echo at a 32K
+context one RTX 5060 Ti 16 GB held 6.0 GiB of experts and the two 16.3 GiB: each card's engine takes VRAM of its
+own beside its share of the experts (setup counts 5.7 GiB for Super's second card). Pictures go through
 Puddle's image encoder (strata-vision), built from llama.cpp `08c252e22`'s mtmd, which has this encoder
 (`nemotron_omni`, the 1.7 GB `mmproj-BF16.gguf`, at its own limits: up to 3,407,872 pixels, as llama-server reads
 Bolt's). The server puts `<img>` and `</img>` around the picture's rows, as mtmd does; strata-poly reads them as text

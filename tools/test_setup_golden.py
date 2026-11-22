@@ -6,7 +6,8 @@ run config, byte for byte, as the recorded baseline (tools/test_setup_golden.jso
 The baseline was recorded again for Puddle's families (phase 1b-1, 2026-11-19: the Qwen engine's families are gone;
 phase 1c: Laguna-S, Laguna-XS and Occamy added; T2, 2026-11-20: Occamy removed; B4, 2026-11-20: Nemotron 3.5 Bolt
 added, the other entries unchanged; phase 2, 2026-11-21: Nemotron 3.5 Super added, the other entries unchanged;
-2026-11-22: Super's MTP block runs, its entries without --no-draft, the other entries unchanged);
+2026-11-22: Super's MTP block runs, its entries without --no-draft, the other entries unchanged; 2026-11-22:
+Super's VRAM figures measured on echo, so 47 GB of RAM beside two 16 GB cards no longer takes it unasked);
 record it again only when a default changes on purpose.
 
     python -m unittest tools.test_setup_golden

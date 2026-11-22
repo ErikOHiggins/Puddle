@@ -318,8 +318,11 @@ FAMILIES = {
     # CLI wrote the same 256 tokens either way.  arena_gb: the file's routed experts with the block's,
     # 58,562,445,312 bytes (without them 55.6); there the engine's mapped file took 3.0 GiB more RAM with the block
     # (/proc RssFile after loading, 48.06 against 45.05 GiB).  row_bytes: the 8 attention layers' rows and the block's.
-    # vram_beside_gb: 12.3 from echo's log at an 8K context, the estimate's way, and 0.2 more for the block (75
-    # fewer experts in VRAM, 8.8 -> 8.6 GiB on the second card at 256K).  Pictures:
+    # vram_beside_gb: echo, one RTX 5060 Ti 16 GB (15.93 GiB) at a 32K context with the block, 2,316 of 20,992 experts
+    # in VRAM (6.0 GiB), the estimate's way (Bolt's).  vram_card_gb: what each further card takes beside its share of
+    # the experts, where setup's 2.0 a card is too little: on both cards at 32K 6,170 experts (16.3 GiB), so the two
+    # took 15.6 GiB beside the experts together (each card's engine has its own scratch, reserve and buffers).  With
+    # these the estimate is echo's: 6.5 GB of experts on one card (6.4 measured), 17.5 on two (17.5).  Pictures:
     # strata-vision (llama.cpp 08c252e22's mtmd, nemotron_omni) at the encoder file's own limits (vision_max_tokens 0:
     # up to 3,407,872 pixels, as llama-server reads Bolt's).  vision_vram_gb: measured on echo at a 256K context, the
     # encoder warmed up at its largest picture before the engine started: 6,451 -> 5,735 experts in VRAM (16.6 -> 14.1
@@ -327,21 +330,21 @@ FAMILIES = {
     # vram_beside_gb: from echo's log, 17.1 GiB of experts on 2x RTX 5060 Ti 16 GB at an 8K context, the estimate's way.
     "nemotron-super": {"title": "Nemotron 3.5 Super", "by": "NVIDIA; quantized by Unsloth",
                        "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                       "about": "120B-A12B, reads pictures; a 66 GB file, ~65 GB of RAM beside a 16 GB card; runs on 2x "
+                       "about": "120B-A12B, reads pictures; a 66 GB file, ~62 GB of RAM beside a 16 GB card; runs on 2x "
                                 "RTX 5060 Ti 16 GB on the strata-poly engine",
                        "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"),
                        "file": "{q}/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-{q}-0000{i}-of-00003.gguf", "shards": 3,
                        "tag": "nemotron-super-", "name": "nemotron-3.5-super", "engine": "poly", "vision": True,
                        "experimental": True, "metal": False, "ran_on_gb": 16, "row_bytes": 9216,
                        "mmproj_hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"), "mmproj": "mmproj-BF16.gguf",
-                       "vision_gb": 1.7, "vision_vram_gb": 2.5, "vision_max_tokens": 0,
+                       "vision_gb": 1.7, "vision_vram_gb": 2.5, "vision_max_tokens": 0, "vram_card_gb": 5.7,
                        "contexts": [8192, 32768, 65536, 131072, 262144],
                        "license": "OpenMDW-1.1 (NVIDIA's): "
                                   "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
                        "models": {"UD-Q3_K_XL": {"about": "Unsloth Dynamic: IQ4_XS / IQ3_XXS / IQ2_XS up and IQ4_NL / "
                                                           "Q2_0 down experts, 4.05 bits a weight",
-                                                 "download_gb": 65.8, "ram_gb": 65, "arena_gb": 58.6,
-                                                 "vram_beside_gb": 12.5}},
+                                                 "download_gb": 65.8, "ram_gb": 62, "arena_gb": 58.6,
+                                                 "vram_beside_gb": 9.9}},
                        "sha256": {"NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00001-of-00003.gguf":
                                   (7874568, "b2a570b4fc2e2e0ef3657937d6d4689c5d9647125e5fe22e31426789cf4e02fa"),
                                   "NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00002-of-00003.gguf":
@@ -4030,8 +4033,8 @@ def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, 
         fail(f"{title} has no {a.model} model file", "choose one of: " + ", ".join(names))
     vram = gpu["vram_gb"]
     if multi:   # each card has its layers' dense weights; its own scratch and staging buffer cost ~2 GB a card more
-        cards = {g["index"]: g for g in (amd_gpus() if hip else gpus())}
-        vram = sum(cards[i]["vram_gb"] for i in multi) - 2.0 * (len(multi) - 1)
+        cards = {g["index"]: g for g in (amd_gpus() if hip else gpus())}   # (a family's "vram_card_gb": measured)
+        vram = sum(cards[i]["vram_gb"] for i in multi) - fam.get("vram_card_gb", 2.0) * (len(multi) - 1)
     model = a.model or poly_default(sizes, ram, vram)
     if not a.model and len(names) > 1:
         say()

@@ -1869,39 +1869,8 @@
   }
  },
  "47GB-2x16GB nemotron-super recommended": {
-  "code": 0,
-  "config": {
-   "args": [
-    "--model",
-    "<T>/models/nemotron-super-UD-Q3_K_XL/UD-Q3_K_XL/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00001-of-00003.gguf",
-    "--max-context",
-    "32768",
-    "--expert-profile",
-    "<T>/data/packs/nemotron-super-ud-q3_k_xl/expert-profile.txt"
-   ],
-   "cwd": "<T>",
-   "display_name": "Nemotron 3.5 Super UD-Q3_K_XL",
-   "exe": "<T>/engine-poly/<strata-poly>",
-   "gpu": [
-    0,
-    1
-   ],
-   "gpus_asked": true,
-   "layer_split": "auto",
-   "lib_dirs": [
-    "/cuda/lib64"
-   ],
-   "log": "<T>/strata-nemotron-super-ud-q3_k_xl.log",
-   "model_name": "nemotron-3.5-super-ud-q3_k_xl",
-   "port": 8080,
-   "sampling": {
-    "min_p": 0.05,
-    "temperature": 1.0,
-    "top_k": 40,
-    "top_p": 0.95
-   },
-   "tokenizer": "<T>/data/packs/nemotron-super-ud-q3_k_xl/tokenizer"
-  }
+  "code": 1,
+  "config": null
  },
  "64GB-1x32GB gemma4 QAT-UD-Q4_K_XL": {
   "code": 0,
