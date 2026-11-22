@@ -317,14 +317,23 @@ void NemotronH::assign_scratch() {
                                   "scratch)");
     }
     // A few tokens' attention (an answer's, a window's, the draft block's) through fdec_f16(), fattn.hpp's decode
-    // kernel (heads of 128 since phase 2), in score_: opt-in with STRATA_FDEC=1 until it is measured; attend_group()
-    // otherwise, and where the kernel does not fit (said once: assign_scratch() runs twice).
+    // kernel (heads of 128 since phase 2), in score_, from 4,096 positions of context: on unless STRATA_FDEC=0, and
+    // from the first position with =1; attend_group() below that and where the kernel does not fit (said once:
+    // assign_scratch() runs twice).  On echo (2x RTX 5060 Ti 16 GB) Bolt wrote 58.4 tokens/s after a 26,460-token
+    // prompt and 53.1 after a 96,165-token one with it instead of 53.7 and 40.4, and 66.3 after 27 tokens instead
+    // of 74.3 with it from the first position; its answers moved less than with a batch of 512 tokens instead of
+    // 1,024 (tools/poly_parity.py, docs/BACKENDS.md).
     const char* fd = std::getenv("STRATA_FDEC");
-    if (fd && std::atoi(fd) == 1 && !fdec_said_) {
+    if (!(fd && std::atoi(fd) == 0) && !fdec_said_) {
         fdec_said_ = true;
         fdec_ = fdec_fits(head_dim_, n_head_, max_kv_, (int) opt_.max_context, score_n_);
-        std::fprintf(stderr, "strata-poly: STRATA_FDEC: decode attention %s\n",
-                     fdec_ ? "through the tensor-core decode kernel" : "unchanged (no kernel for it on this card)");
+        fdec_from_ = fd && std::atoi(fd) == 1 ? 0 : 4096;
+        if (fdec_ || (fd && std::atoi(fd) == 1))
+            std::fprintf(stderr, "strata-poly: STRATA_FDEC: decode attention %s\n",
+                         !fdec_ ? "unchanged (no kernel for it on this card)"
+                         : fdec_from_ ? "through the tensor-core decode kernel from 4,096 tokens of context "
+                                        "(STRATA_FDEC=0 turns it off)"
+                                      : "through the tensor-core decode kernel");
     }
     xr_ = fbuf(n * n_embd_);
     xrq_ = fbuf((n * kernels::native_q8_1_bytes(n_embd_) + sizeof(float) - 1) / sizeof(float));
@@ -427,8 +436,9 @@ void NemotronH::attn(Block& B, int64_t pos, int n) {
                                   score_n_, st_)))
             attend_batch(blas_, q_, B.keys, B.vals, pos, n, score_, score_n_, awork_, att_, head_dim_, n_head_, B.n_kv,
                          scale, st_);
-    } else if (!(fdec_ && fdec_f16(q_, B.keys, B.vals, pos, n, nullptr, 0, att_, head_dim_, n_head_, B.n_kv, scale,
-                                   score_, score_n_, st_)))
+    } else if (!(fdec_ && pos >= fdec_from_ &&
+                 fdec_f16(q_, B.keys, B.vals, pos, n, nullptr, 0, att_, head_dim_, n_head_, B.n_kv, scale, score_,
+                          score_n_, st_)))
         attend_group(q_, B.keys, B.vals, pos, n, score_, chunk_, att_, head_dim_, n_head_, B.n_kv, scale, st_, 0, 0,
                      false, nullptr, 0, score_n_);
     lin(B.wo, att_, ao_, n);

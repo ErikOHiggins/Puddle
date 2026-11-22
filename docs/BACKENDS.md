@@ -2137,7 +2137,8 @@ holds 4,096 positions they go through a kernel of this project's own (`fdec_q8()
 instead of `attend()`'s score, softmax and value kernels, which write every score to memory and read it back twice.
 One CUDA block takes 1,024 keys of a KV head's group for up to 4 tokens (group 8) or 2 tokens (group 16) as flash
 attention on the tensor cores. The cache is read once for those tokens, and the blocks are merged by their softmax
-max and sum. q8_0 and fp16 caches, heads of 256 values, 8 or 16 heads a group, Ampere or later NVIDIA.
+max and sum. q8_0 and fp16 caches, heads of 256 values or 128 (the Nemotrons', since 2026-11-22), 8 or 16 heads a
+group, Ampere or later NVIDIA.
 A token gets the same bits alone or in a window, as
 with `attend()`. No VRAM is added. The server logs `STRATA_FDEC: decode attention through the tensor-core decode
 kernel from 4,096 tokens of context`; Turing, HIP and other models keep the old path, and so does `STRATA_FDEC=0`.
@@ -2170,6 +2171,22 @@ the median of two runs:
 Every run at 32K and 100K answered the hidden code. With the fixed flags of a regression run the greedy answers of
 both and of neither were the same 128 tokens at 32K and parted at token 85 at 100K. The RTX 4060 Laptop of
 [PolyStrata issue 107](https://github.com/simplexai-labs/PolyStrata/issues/107) at 118K: 1.62x reading, 1.60x writing.
+
+**Heads of 128, measured** on echo (two RTX 5060 Ti 16 GB), 2026-11-22, Nemotron 3.5 Bolt through Puddle
+(`puddle.py benchmark`, fp16 cache, 256 tokens written), with `STRATA_FDEC=1` (the kernel from the first position):
+
+| Writing after | without | with | llama-server, the same day |
+| --- | ---: | ---: | ---: |
+| 27 tokens | 74.3 tokens/s | 66.3 | 61.1 |
+| 2,520 tokens | 61.2 | 61.3 | 60.4 |
+| 26,460 tokens | 53.7 | 58.4 | 54.6 |
+| about 96K tokens | 40.4 | 53.1 | 42.3 |
+
+(The longest prompt was 96,548 tokens without and 96,165 with: its text changed between the runs.) Below 4,096
+positions the old path stays, as for Qwen. One layer's attention at 170,000 positions (`poly_fattn_test dec dim128
+gqa16`, four tokens, fp16): 0.99 ms against 6.53. With `tools/poly_parity.py` on a 2,190-token text and a picture,
+Bolt's first choices were llama-server's at all 64 steps of each, and strata-poly's own top ten moved less from the
+old path to the kernel (KL mean 1.63e-2 on the text) than from a batch of 1,024 tokens to one of 512 (1.96e-2).
 
 ### Chunked GDN prefill
 
