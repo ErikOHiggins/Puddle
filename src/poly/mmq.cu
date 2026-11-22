@@ -26,15 +26,16 @@ namespace {
     X(Q4_0) X(Q4_1) X(Q5_0) X(Q5_1) X(Q8_0) X(Q2_K) X(Q3_K) X(Q4_K) X(Q5_K) X(Q6_K)                             \
     X(IQ1_S) X(IQ2_XXS) X(IQ2_XS) X(IQ2_S) X(IQ3_XXS) X(IQ3_S) X(IQ4_NL) X(IQ4_XS) X(MXFP4) X(Q2_0)
 
-// Q2_0's tiles (Unsloth's Nemotron 3.5 Super UD-Q3_K_XL keeps four layers' down matrices in it): opt-in with
-// STRATA_MMQ_Q2_0=1 until they are measured.  Without them a prompt batch takes such a layer's routed experts a few
-// tokens at a time (Engine::moe()), the ones outside VRAM on the CPU.
-bool q2_0_asked() {
-    static const bool asked = [] {
+// Q2_0's tiles (Unsloth's Nemotron 3.5 Super UD-Q3_K_XL keeps four layers' down matrices in it): on unless
+// STRATA_MMQ_Q2_0=0.  Without them a prompt batch takes such a layer's routed experts a few tokens at a time
+// (Engine::moe()), the ones outside VRAM on the CPU: on echo (2x RTX 5060 Ti 16 GB) Super read a 26,460-token
+// prompt at 618 tokens/s with them and 203 without (docs/BACKENDS.md).
+bool q2_0_on() {
+    static const bool on = [] {
         const char* v = std::getenv("STRATA_MMQ_Q2_0");
-        return v != nullptr && std::atoi(v) == 1;
+        return !(v != nullptr && std::atoi(v) == 0);
     }();
-    return asked;
+    return on;
 }
 
 int64_t pad512(int64_t n) { return (n + 511) / 512 * 512; }
@@ -78,7 +79,7 @@ Mmq::~Mmq() { delete (ggml_backend_cuda_context*) ctx_; }
 bool Mmq::fits(int type, int64_t w_rows, int64_t w_cols) {
     const ggml_type t = (ggml_type) type;
     const auto& dev = ggml_cuda_info().devices[ggml_cuda_get_device()];
-    if (t == GGML_TYPE_Q2_0 && !q2_0_asked()) return false;
+    if (t == GGML_TYPE_Q2_0 && !q2_0_on()) return false;
     switch (t) {
 #define X(T) case GGML_TYPE_##T:
         STRATA_POLY_MMQ_TYPES(X)

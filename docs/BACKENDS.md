@@ -2267,6 +2267,31 @@ same. Super's experts are mostly on the processor there, which its prompt readin
 own top ten moved less from the walk to the chunks (KL mean 1.12e-2 for Bolt, 4.73e-2 for Super, on a 2,175-token
 text) than from a batch of 1,024 tokens to one of 512 with the walk (1.96e-2 and 5.43e-2).
 
+### Q2_0 experts in MMQ tiles (on by default; `STRATA_MMQ_Q2_0=0` turns it off)
+
+A prompt batch multiplies a layer's routed experts through llama.cpp's MMQ tiles when there are tiles for their
+types. Q2_0 has them since 2026-11-22 (llama.cpp's `mmq-instance-q2_0.cu`). Without them, a layer with Q2_0 experts
+took a prompt 8 tokens at a time, the experts outside VRAM on the processor. Of the files setup knows, only
+Unsloth's Nemotron 3.5 Super UD-Q3_K_XL has Q2_0 experts: the down matrices of 4 of its 40 MoE layers. The server logs
+`STRATA_MMQ_Q2_0: 4 of the 4 layers with Q2_0 experts read a prompt batch through MMQ tiles`.
+
+**Measured** on echo (two RTX 5060 Ti 16 GB), 2026-11-22, through Puddle (`puddle.py benchmark`, flash attention and
+the chunked Mamba-2 scan on):
+
+| Super, prompt read | without | with |
+| --- | ---: | ---: |
+| 2,520 tokens | 110.4 tokens/s | 192.6 |
+| 26,460 tokens | 202.6 | 618.4 |
+| about 96K tokens | 215.5 | 597.9 |
+
+The first token of the longest prompt came after 123.6 s instead of 343.9 (the prompt was 96,548 tokens without and
+96,137 with: its text changed between the runs). Writing was the same, 17 to 20 tokens/s. A profile without them
+(`nsys`, 16,000 tokens read at 115.9 tokens/s) had the processor's experts at 112 of the 138 s; with them, strata-poly
+read the same tokens at 605.5 tokens/s with none on the processor. With `tools/poly_parity.py`, Super's first choices
+parted from llama-server's at near ties only, on a 2,175-token text (63 of 64 the same) and a picture (63 of 64), and
+strata-poly's own top ten on the text moved less (KL mean 3.37e-2) than from a batch of 1,024 tokens to one of 512
+(5.43e-2).
+
 ### FP4 activations for NVFP4 prompt products (`STRATA_PREFILL_NVFP4=w4a4`)
 
 A prompt's products with NVFP4 weights (Nemotron 3.5 Bolt's Mamba-2 projections, `ssm_in` and `ssm_out`) round

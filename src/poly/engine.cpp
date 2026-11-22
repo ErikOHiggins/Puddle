@@ -3114,9 +3114,9 @@ void Engine::alloc() {
         q2_layers += q2;
         q2_tiled += q2 && L.mmq;
     }
-    if (const char* v = std::getenv("STRATA_MMQ_Q2_0"); v && std::atoi(v) == 1 && q2_layers > 0)
+    if (q2_layers > 0)
         std::fprintf(stderr, "strata-poly: STRATA_MMQ_Q2_0: %d of the %d layers with Q2_0 experts read a prompt batch "
-                             "through MMQ tiles\n", q2_tiled, q2_layers);
+                             "through MMQ tiles (STRATA_MMQ_Q2_0=0 turns it off)\n", q2_tiled, q2_layers);
     if (tiles) mmq_ = std::make_unique<Mmq>();
 
     shared_scratch();   // the first pass only counts

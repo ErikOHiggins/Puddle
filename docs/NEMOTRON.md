@@ -233,6 +233,11 @@ A first look at Super's speed in those runs, not a benchmark: with 6,647 of its 
 it wrote 13.7 tokens/s after a short prompt, with the expert cache held still, no guesses and every launch made anew.
 The CPU's experts took 50 to 54 ms of each token.
 
+Since 2026-11-22 the four layers whose down matrices are Q2_0 read a prompt in batches too
+([BACKENDS.md](BACKENDS.md#q2_0-experts-in-mmq-tiles-on-by-default-strata_mmq_q2_00-turns-it-off)). Through Puddle
+on echo, Super then read 192.6 tokens/s at 2,520 tokens, 618.4 at 26,460 and 597.9 at 96,137, instead of 110.4, 202.6
+and 215.5; writing stayed at 17 to 20 tokens/s.
+
 ## Nemotron 3.5 Bolt on strata-poly
 
 Bolt's default since 2026-11-21 ([Install](#install)). The engine starts with `--no-draft` (Bolt has no MTP block).
@@ -286,9 +291,8 @@ and of a picture. strata-poly's FP4 rounding is a setting
 ## Not there yet
 
 - Super's MTP block.
-- strata-poly's speed on both: reading prompts (Super's 110 to 217 tokens/s, with most of its experts on the
-  processor), the recorded launches (CUDA graphs), writing at long context (the decode kernel has no heads of 128
-  yet), and guesses.
+- strata-poly's speed on both: the recorded launches (CUDA graphs), writing at long context (the decode kernel has
+  no heads of 128 yet), and guesses; Super's writing, with most of its experts on the processor.
 - NVIDIA's DFlash draft model (a separate file, `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF`). Setup does not
   download or use it.
 - On llama-server: `--vram-reserve-mib`, several requests at once, and replicas: llama-server is run with one slot.
