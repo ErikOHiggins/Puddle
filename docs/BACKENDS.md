@@ -2310,6 +2310,15 @@ adapter, but Blackwell runtime testing is still needed. HIP was not built here; 
 there. This experimental opt-in changes floating-point accumulation and can change
 outputs. Prefill gains do not guarantee faster generation; some measured long-response TG runs regressed.
 
+On echo (two RTX 5060 Ti 16 GB, SM120; 2026-11-23) `poly_gdn_mma_test` passes, and Occamy 1.0 APEX-Quality read
+prompts 10% to 14% faster with it (`puddle.py benchmark`, the same build without it as the control: 3,525 / 4,649 /
+3,726 tokens/s at 2,871 / 26,656 / 96,514 tokens became 4,015 / 5,312 / 4,101). Writing did not change (111.3 / 111.0 /
+97.5 / 74.3 tokens/s without it, 111.3 / 109.4 / 98.4 / 73.4 with it). It moved the model's answers more than a
+harmless change does: against strata-poly without it, on the same tokens (`tools/poly_parity.py`), the top ten moved
+KL 3.98e-2 on a 2,292-token document and 2.21e-2 on a picture (`test-1.jpeg`, 319 tokens), where reading the same
+prompts 256 tokens at a time instead of 1,024 moved them 2.21e-2 and 4.49e-3. On the picture the first token changed:
+llama.cpp's first choice (0.736) became strata-poly's second (0.323). So it stays opt-in.
+
 ### Streaming CPU copies for expert staging
 
 `STRATA_POLY_STREAM_STAGE=1` uses SSE2 streaming stores when packing experts into the existing host upload
