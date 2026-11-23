@@ -3153,12 +3153,18 @@ void Engine::alloc() {
         d_slots_ = (void**) dmalloc((size_t) n_layer_ * n_expert_ * sizeof(void*), "scratch");
         tab_ = (int32_t*) dmalloc(tab, "scratch");
         h_tab_ = (int32_t*) hmalloc(tab, "pinned memory");
-        iota_ = (int32_t*) dmalloc(rr * sizeof(int32_t), "scratch");
+        // the ids of the gate and up products, with the values llama.cpp's tiles read behind a call's last row
+        // (Mmq::ids_tail; from PolyStrata 0.2.19-poly.1, issue 82, whose 128 leave out the stream-k fixup's reach).
+        // The down products' ids (d_place in moe(), after d_tok's rr) have the rest of tab_ behind them.
+        const size_t tail = (size_t) Mmq::ids_tail((int64_t) n), ids = rr + tail;
+        if (tab / sizeof(int32_t) < 2 * rr + tail)
+            throw std::logic_error("strata-poly: the MoE table has no room behind its down products' ids");
+        iota_ = (int32_t*) dmalloc(ids * sizeof(int32_t), "scratch");
         d_ex_ = (int32_t*) dmalloc(rr * sizeof(int32_t), "scratch");
         h_ex_ = (int32_t*) hmalloc(rr * sizeof(int32_t), "pinned memory");
-        std::vector<int32_t> ramp(rr);
+        std::vector<int32_t> ramp(ids);
         std::iota(ramp.begin(), ramp.end(), 0);
-        ck(cudaMemcpy(iota_, ramp.data(), rr * sizeof(int32_t), cudaMemcpyHostToDevice), "scratch");
+        ck(cudaMemcpy(iota_, ramp.data(), ids * sizeof(int32_t), cudaMemcpyHostToDevice), "scratch");
 
         // One layer's experts pass through it at a time, so it never holds more than a layer has.  A model of
         // small experts has a few hundred MiB a layer, and the rest of the default would be VRAM that the

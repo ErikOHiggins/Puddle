@@ -34,9 +34,22 @@ public:
     static void quantize(const float* x, const int32_t* ids, void* xq, int ggml_type, int64_t cols, int64_t ld,
                          int64_t rows, void* stream);
 
+    /// The widest column tile of llama.cpp's MMQ at the pin: mul_mat_q_switch_J launches J = 8 .. 128.
+    static constexpr int64_t kTileCols = 128;
+    /// The ids values behind a call's last row that mul() may read, for a call whose matrices have at most max_rows
+    /// rows each.  llama.cpp's tiles load the ids of a whole tile of up to kTileCols rows, also where a matrix has
+    /// fewer: the main kernel up to kTileCols - 1 past the last matrix's rows, and the stream-k fixup (NVIDIA from
+    /// Volta) every tile up to roundup(max_rows, kTileCols) from each matrix's first row, which can be the table's
+    /// last (mmq.cuh, mul_mat_q_stream_k_fixup: ids_dst[col_low + jt*J + j], checked against no row count).  The
+    /// values are read, never used.  One tile more than the fixup reaches, as Strata's mmq_ids_margin.hpp gives.
+    static constexpr int64_t ids_tail(int64_t max_rows) {
+        return (max_rows + kTileCols - 1) / kTileCols * kTileCols + kTileCols;
+    }
+
     /// One launch over n matrices of [w_rows, w_cols], `stride` bytes apart from w: matrix e times the rows
     /// [bounds[e], bounds[e + 1]) of xq, which quantize() wrote with total_rows rows.  Row i's product goes to row
-    /// ids[i] of dst, ld_dst floats a row.  bounds (n + 1 values) and ids are on the device.  max_rows is the most
+    /// ids[i] of dst, ld_dst floats a row, and ids has ids_tail(max_rows) readable values behind the last matrix's
+    /// rows.  bounds (n + 1 values) and ids are on the device.  max_rows is the most
     /// rows one of the matrices has.  With one matrix, bounds and ids may both be null: it takes every row, and
     /// row i goes to row i.  Throws std::runtime_error.
     void mul(const void* w, int ggml_type, int64_t w_rows, int64_t w_cols, size_t stride, int n, const void* xq,
@@ -46,5 +59,9 @@ public:
 private:
     void* ctx_ = nullptr;   ///< llama.cpp's launch context: a small scratch pool
 };
+
+static_assert(Mmq::ids_tail(0) == 128 && Mmq::ids_tail(1) == 256 && Mmq::ids_tail(128) == 256 &&
+                  Mmq::ids_tail(129) == 384 && Mmq::ids_tail(2048) == 2176,
+              "Mmq::ids_tail: roundup(max_rows, kTileCols) + kTileCols");
 
 }  // namespace strata::poly
