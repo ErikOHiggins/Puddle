@@ -95,7 +95,8 @@ private:
     size_t score_n_ = 0;       ///< the floats of score_
     bool fattn_ = false;       ///< full layers' prompt batches through fattn_q8() / fattn_f16() (STRATA_FATTN=0: off)
     bool fattn_said_ = false;
-    bool fdec_ = false;        ///< the full layers' few tokens through fdec_q8() / fdec_f16() (STRATA_FDEC=1)
+    bool fdec_ = false;        ///< the full layers' few tokens through fdec_q8() / fdec_f16() (STRATA_FDEC=0: off)
+    int fdec_from_ = 4096;     ///< from this position (STRATA_FDEC=1: 0)
     bool fdec_said_ = false;
     float* awork_ = nullptr;   ///< a prompt batch's attention (attend_batch)
     float* q8w_ = nullptr;     ///< a --kv q8_0 prompt batch's K and V, dequantized to fp16 (kwork | vwork)

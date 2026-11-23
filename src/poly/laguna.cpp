@@ -297,14 +297,22 @@ void Laguna::assign_scratch() {
                                   "scratch)");
     }
     // The full layers' few tokens (an answer's, a window's) through fdec_q8() / fdec_f16(), fattn.hpp's decode kernel
-    // (heads of 128 in groups of 6 since phase 2), in score_: opt-in with STRATA_FDEC=1 until it is measured;
-    // attend_group() otherwise, and for the window layers.
+    // (heads of 128 in groups of 6 since phase 2), in score_, from 4,096 positions of context: on unless
+    // STRATA_FDEC=0, and from the first position with =1; attend_group() below that, for the window layers and where
+    // it does not fit.  On echo (2x RTX 5060 Ti 16 GB) Laguna-XS wrote 74.9 tokens/s after a 95,860-token prompt with
+    // it from the first position and 60.3 without, Laguna-S 28.5 and 24.2, and both the same after 52 and 2,549
+    // tokens; XS's first choices did not move from the old path's (docs/BACKENDS.md).
     const char* fd = std::getenv("STRATA_FDEC");
-    if (fd && std::atoi(fd) == 1 && full_heads > 0 && !fdec_said_) {
+    if (!(fd && std::atoi(fd) == 0) && full_heads > 0 && !fdec_said_) {
         fdec_said_ = true;
         fdec_ = fdec_fits(head_dim_, full_heads, n_kv_, (int) opt_.max_context, score_n_);
-        std::fprintf(stderr, "strata-poly: STRATA_FDEC: the full layers' decode attention %s\n",
-                     fdec_ ? "through the tensor-core decode kernel" : "unchanged (no kernel for it on this card)");
+        fdec_from_ = fd && std::atoi(fd) == 1 ? 0 : 4096;
+        if (fdec_ || (fd && std::atoi(fd) == 1))
+            std::fprintf(stderr, "strata-poly: STRATA_FDEC: the full layers' decode attention %s\n",
+                         !fdec_ ? "unchanged (no kernel for it on this card)"
+                         : fdec_from_ ? "through the tensor-core decode kernel from 4,096 tokens of context "
+                                        "(STRATA_FDEC=0 turns it off)"
+                                      : "through the tensor-core decode kernel");
     }
 }
 
@@ -531,7 +539,7 @@ void Laguna::attn(Block& B, int64_t pos, int n) {
                          att_, head_dim_, heads, n_kv_, scale, st_, window, ring, false, kq, vq,
                          q8 ? (uint16_t*) q8w_ : nullptr, q8 ? (uint16_t*) q8w_ + work_halves_ : nullptr,
                          q8 ? work_halves_ : 0);
-    } else if (!(fdec_ && !B.swa &&
+    } else if (!(fdec_ && !B.swa && pos >= fdec_from_ &&
                  (q8 ? fdec_q8(q_, kq, vq, pos, n, at, at ? room(n) : 0, att_, head_dim_, heads, n_kv_, scale, score_,
                                score_n_, st_)
                      : fdec_f16(q_, B.keys, B.vals, pos, n, at, at ? room(n) : 0, att_, head_dim_, heads, n_kv_, scale,

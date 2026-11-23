@@ -2195,7 +2195,7 @@ instead of `attend()`'s score, softmax and value kernels, which write every scor
 One CUDA block takes 1,024 keys of a KV head's group for up to 4 tokens (group 8) or 2 tokens (group 16) as flash
 attention on the tensor cores. The cache is read once for those tokens, and the blocks are merged by their softmax
 max and sum. q8_0 and fp16 caches, heads of 256 values or 128 (the Nemotrons', since 2026-11-22), 8 or 16 heads a
-group, Ampere or later NVIDIA.
+group, or 6 with heads of 128 (Laguna's full layers; its window layers keep the old path), Ampere or later NVIDIA.
 A token gets the same bits alone or in a window, as
 with `attend()`. No VRAM is added. The server logs `STRATA_FDEC: decode attention through the tensor-core decode
 kernel from 4,096 tokens of context`; Turing, HIP and other models keep the old path, and so does `STRATA_FDEC=0`.
@@ -2244,6 +2244,22 @@ positions the old path stays, as for Qwen. One layer's attention at 170,000 posi
 gqa16`, four tokens, fp16): 0.99 ms against 6.53. With `tools/poly_parity.py` on a 2,190-token text and a picture,
 Bolt's first choices were llama-server's at all 64 steps of each, and strata-poly's own top ten moved less from the
 old path to the kernel (KL mean 1.63e-2 on the text) than from a batch of 1,024 tokens to one of 512 (1.96e-2).
+
+**Laguna, measured** on echo, 2026-11-22, through Puddle (setup's configs: both cards, 256K, q8_0 cache, flash
+attention on), with `STRATA_FDEC=1` (the kernel from the first position):
+
+| Writing after | Laguna-XS without | with | Laguna-S without | with |
+| --- | ---: | ---: | ---: | ---: |
+| 52 tokens | 134.5 tokens/s | 136.0 | 36.1 | 35.8 |
+| 2,549 tokens | 129.9 | 129.5 | 31.7 | 31.0 |
+| 26,455 tokens | 100.3 | 110.9 | 35.6 | 36.2 |
+| about 96K tokens | 60.3 | 74.9 | 24.2 | 28.5 |
+
+(The longest prompt was 95,829 tokens without and 95,860 with.) Below 4,096 positions the old path stays: it was no
+slower there. One layer of Laguna's shape at 170,000 positions, four tokens (`poly_fattn_test dec dim128 gqa6`): 0.39
+ms against 4.69 with q8_0, 0.49 against 3.10 with fp16. On a 2,151-token text (`tools/poly_parity.py`) XS's first
+choices were the old path's at all 64 steps and Laguna-S's at 62; strata-poly's own top ten moved less on XS (KL mean
+6.30e-2) than from a batch of 1,024 tokens to one of 512 (2.21e-1).
 
 ### Chunked GDN prefill
 
