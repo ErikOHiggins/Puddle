@@ -367,6 +367,15 @@ installs it. **Measured** on echo, 2026-11-23:
 | picture (318 tokens, NVIDIA's image encoder) | 31 of 32 (the other a near tie) |
 
 At a 32K context one RTX 5060 Ti 16 GB held 2,248 of its 13,824 experts (6.5 GiB), and two held 5,886 (16.9 GiB).
+Through Puddle (`puddle.py benchmark`, setup's config: both cards, a 256K context, pictures on, 256 tokens written;
+68% to 77% of the experts a token used were in VRAM):
+
+| Prompt | read | first token after | writing |
+| --- | ---: | ---: | ---: |
+| 27 tokens | 37.6 tokens/s | 0.72 s | 33.3 tokens/s |
+| 2,831 tokens | 289.4 | 9.9 s | 33.3 |
+| 26,324 tokens | 837.7 | 29.1 s | 36.4 |
+| 95,281 tokens | 800.1 | 91.4 s | 33.7 |
 
 ## Not there yet
 
