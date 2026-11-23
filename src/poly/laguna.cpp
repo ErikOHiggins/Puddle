@@ -296,6 +296,16 @@ void Laguna::assign_scratch() {
                                 : "unchanged (no kernel for it on this card, or --prompt-batch too large for the "
                                   "scratch)");
     }
+    // The full layers' few tokens (an answer's, a window's) through fdec_q8() / fdec_f16(), fattn.hpp's decode kernel
+    // (heads of 128 in groups of 6 since phase 2), in score_: opt-in with STRATA_FDEC=1 until it is measured;
+    // attend_group() otherwise, and for the window layers.
+    const char* fd = std::getenv("STRATA_FDEC");
+    if (fd && std::atoi(fd) == 1 && full_heads > 0 && !fdec_said_) {
+        fdec_said_ = true;
+        fdec_ = fdec_fits(head_dim_, full_heads, n_kv_, (int) opt_.max_context, score_n_);
+        std::fprintf(stderr, "strata-poly: STRATA_FDEC: the full layers' decode attention %s\n",
+                     fdec_ ? "through the tensor-core decode kernel" : "unchanged (no kernel for it on this card)");
+    }
 }
 
 // A sequence's rows are the full layers': a window layer's are part of its state (save_layer()).  Under --kv q8_0
@@ -521,7 +531,11 @@ void Laguna::attn(Block& B, int64_t pos, int n) {
                          att_, head_dim_, heads, n_kv_, scale, st_, window, ring, false, kq, vq,
                          q8 ? (uint16_t*) q8w_ : nullptr, q8 ? (uint16_t*) q8w_ + work_halves_ : nullptr,
                          q8 ? work_halves_ : 0);
-    } else
+    } else if (!(fdec_ && !B.swa &&
+                 (q8 ? fdec_q8(q_, kq, vq, pos, n, at, at ? room(n) : 0, att_, head_dim_, heads, n_kv_, scale, score_,
+                               score_n_, st_)
+                     : fdec_f16(q_, B.keys, B.vals, pos, n, at, at ? room(n) : 0, att_, head_dim_, heads, n_kv_, scale,
+                                score_, score_n_, st_))))
         attend_group(q_, q8 ? nullptr : B.keys, q8 ? nullptr : B.vals, pos, n, score_, chunk_, att_, head_dim_, heads,
                      n_kv_, scale, st_, window, ring, false, at,
                      !at ? 0 : B.swa ? std::min(window_ + n - 1, opt_.max_context) : room(n), score_n_, kq, vq);

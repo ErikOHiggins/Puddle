@@ -18,8 +18,8 @@
 //        poly_fattn_test [dec] gqa16   the same checks with Ornith 122B's 32 heads / 2 KV heads
 //        poly_fattn_test [dec] dim128 gqa16  the checks with heads of 128 values, the Nemotrons' shape (32 heads /
 //                                      2 KV heads)
-//        poly_fattn_test dim128 gqa6   the prompt checks with Laguna's full layers' group of 6 (12 heads / 2 KV
-//                                      heads here; Laguna-S has 48 / 8); the decode kernel has no groups of 6
+//        poly_fattn_test [dec] dim128 gqa6   the checks with Laguna's full layers' group of 6 (12 heads / 2 KV
+//                                      heads here; Laguna-S has 48 / 8)
 //        poly_fattn_test dec   fdec_q8() and fdec_f16() (the decode kernel) against attend() and the doubles, up
 //                              to 170,000 rows; a token alone and with others, and from a position on the card,
 //                              to the bit

@@ -33,8 +33,8 @@ bool fattn_f16(const float* q, const uint16_t* keys, const uint16_t* vals, int64
                int n_head, int kv_heads, float scale, float* scratch, size_t scratch_floats, void* stream);
 
 /// This build has the decode kernel for this shape on the current card (Ampere or later): heads of `dim` values (256
-/// or 128), 8 or 16 heads a group; and a scratch of scratch_floats floats holds its splits for `rows` cache rows:
-/// fdec_q8() and fdec_f16() then take every call up to that many.
+/// or 128), 8 or 16 heads a group, or 6 with heads of 128 (Laguna's full layers); and a scratch of scratch_floats
+/// floats holds its splits for `rows` cache rows: fdec_q8() and fdec_f16() then take every call up to that many.
 bool fdec_fits(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats);
 
 /// attend() for n tokens (fewer than kStageRows) with no window, ring or `whole`, over a q8_0 cache: token t

@@ -230,7 +230,7 @@ bool run(const float* q, Kvq8 kq8, Kvq8 vq8, const half* keys, const half* vals,
 constexpr int kSplit = 1024;   // keys a CUDA block takes, counted from the cache's first row
 constexpr int kTile = 64;      // keys a block takes at a time: 16 a warp
 constexpr int kDecWarps = 4;
-constexpr int kDecRows = 32;   // 4 tokens x 8 heads, or 2 x 16; the scratch has the same size
+constexpr int kDecRows = 32;   // 4 tokens x 8 heads, 2 x 16, or 5 x 6 (30 of them); the scratch has the same size
 
 __device__ __forceinline__ void mma16816(float* c, const uint32_t* a, uint32_t b0, uint32_t b1) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
@@ -620,8 +620,9 @@ bool fattn_f16(const float* q, const uint16_t* keys, const uint16_t* vals, int64
 }
 
 bool fdec_fits(int dim, int n_head, int kv_heads, int rows, size_t scratch_floats) {
-    if ((dim != kD && dim != 128) || kv_heads <= 0 || (n_head != 8 * kv_heads && n_head != 16 * kv_heads) || rows <= 0)
-        return false;
+    // groups of 8 or 16, and of 6 for heads of 128 (Laguna's full layers)
+    const bool group = n_head == 8 * kv_heads || n_head == 16 * kv_heads || (dim == 128 && n_head == 6 * kv_heads);
+    if ((dim != kD && dim != 128) || kv_heads <= 0 || !group || rows <= 0) return false;
     const int cc = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
     return GGML_CUDA_CC_IS_NVIDIA(cc) && ampere_mma_available(cc) &&
            fdec_floats(rows, kv_heads, dim) <= scratch_floats;
@@ -654,12 +655,16 @@ bool run_dec(const float* q, const void* kc, const uint16_t* ks, const void* vc,
 
 }  // namespace
 
-// run_dec() for this head size and group: 256 (Qwen3.6) or 128 (the Nemotrons), 8 or 16 heads a group
+// run_dec() for this head size and group: 256 (Qwen3.6) or 128 (the Nemotrons; Laguna's groups of 6), 8 or 16 heads
+// a group
 template <bool F16>
 bool dec_any(const float* q, const void* kc, const uint16_t* ks, const void* vc, const uint16_t* vs, int64_t pos, int n,
              const long long* at, int room, float* out, int dim, int n_head, int kv_heads, float scale, float* scratch,
              size_t scratch_floats, void* stream) {
     const bool g16 = n_head == 16 * kv_heads;
+    if (dim == 128 && n_head == 6 * kv_heads)
+        return run_dec<128, F16, 6>(q, kc, ks, vc, vs, pos, n, at, room, out, dim, n_head, kv_heads, scale, scratch,
+                                    scratch_floats, stream);
     if (dim == 128)
         return g16 ? run_dec<128, F16, 16>(q, kc, ks, vc, vs, pos, n, at, room, out, dim, n_head, kv_heads, scale,
                                            scratch, scratch_floats, stream)
