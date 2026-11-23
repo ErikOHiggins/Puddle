@@ -10,8 +10,8 @@ Mac (5-15 minutes the first time) and sets up a model the way `START-HERE.bat` d
   planned, and it will be untested until someone with a Mac runs it.
 - **The Nemotrons are not offered on a Mac.** The Metal build has no kernels for their Mamba-2 layers, and setup
   compiles llama-server for NVIDIA cards only ([NEMOTRON.md](NEMOTRON.md)).
-- **Gemma 4** uses an architecture the Metal port has (gemma4). Upstream ran models of the Metal port's architectures
-  on Metal, but not these files.
+- **Occamy and Gemma 4** use architectures the Metal port has (qwen35moe and gemma4). Upstream ran other models of those
+  architectures on Metal, but not these files.
 
 Reports from a Mac are welcome: [COMMUNITY_BENCHMARKS.md](COMMUNITY_BENCHMARKS.md).
 
@@ -53,7 +53,7 @@ Options: `--family NAME --model SIZE` (all choices: `./setup.sh --list-models`),
   `--no-metal-optimize` turns it off.
 - `--metal-memory balanced` (the default) grows the KV buffers in 4,096-token steps up to the selected context and
   budgets expert copies against the available unified memory. `--metal-memory legacy` allocates everything at load.
-- The KV cache is fp16, or q8_0 for qwen35moe models with compatible heads (setup offers none). `--poly-kv q8_0|fp16` chooses it
+- The KV cache is fp16, or q8_0 for qwen35moe models with compatible heads (Occamy). `--poly-kv q8_0|fp16` chooses it
   at setup; other architectures refuse q8_0.
 
 ## Build and regression checks

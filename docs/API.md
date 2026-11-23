@@ -110,7 +110,7 @@ settings ("Use for other apps too") and a request's own level win over it.
   sentence in place of Qwen3.8's "xhigh" one. It was written for that template: where the prompt does not have the
   sentence it does nothing, and the reply goes on. Use `"stop"` with Puddle's models.
 - **Thinking of earlier turns.** `"preserve_thinking": true` keeps the thinking of earlier assistant turns in the
-  prompt, for templates that support it (Laguna).
+  prompt, for templates that support it (Laguna, Occamy).
 
 ## Answers and streams
 
@@ -259,7 +259,8 @@ One request is answered at a time unless `"parallel": N` is set (up to N decoded
 Setup writes each family's sampling as the block: Laguna-S and Laguna-XS temperature 1.0, top_p 1.0, top_k 20,
 min_p 0.1 (what testing on echo settled on; poolside's own config has min_p 0); Nemotron 3.5 Bolt temperature 1.0,
 top_p 0.95, top_k 40, min_p 0.05 (NVIDIA's recipe as llama.cpp runs it, [NEMOTRON.md](NEMOTRON.md#llama-servers-run-config));
-Gemma 4 1.0 / 0.95 / 64 (Google's model card). A block you write yourself is kept when setup
+Occamy 1.0 / 0.95 / 20 with presence_penalty 1.5 (the config it ran with on echo); Gemma 4 1.0 / 0.95 / 64
+(Google's model card). A block you write yourself is kept when setup
 runs again. A config without a block (one made by hand, or before setup wrote them) answers a request with no sampling
 greedy (strata-poly's default, temperature 0). `top_k` takes at most 64.
 The penalties (`presence_penalty`, `frequency_penalty`, `repetition_penalty`, with `penalty_last_n`, default 64;
@@ -348,11 +349,11 @@ The other direction, your AI assistant managing Puddle, is [MCP_SERVER.md](MCP_S
 
 The Nemotrons read pictures on strata-poly through a `"vision"` section too; Bolt on llama-server
 (`nemotron-bolt-llama`) reads them with the `--mmproj` in its run config's args instead (no `"vision"` section;
-[NEMOTRON.md](NEMOTRON.md#pictures)). The rest of this section is about Gemma 4.
+[NEMOTRON.md](NEMOTRON.md#pictures)). The rest of this section is about Occamy and Gemma 4.
 
-Gemma 4 reads pictures with its mmproj file and a small helper, `strata-vision` (from llama.cpp's `mtmd`).
+Occamy and Gemma 4 read pictures with their mmproj file and a small helper, `strata-vision` (from llama.cpp's `mtmd`).
 Say yes to "Images?" in setup, or run `./setup.sh --setup --vision yes`. The encoder runs on the GPU from 15.5 GB of
-VRAM (it keeps about 2.4 GB of VRAM for Gemma 4, by setup's figures), else on the CPU (a few seconds
+VRAM (it keeps about 1.6 GB of VRAM for Occamy, 2.4 GB for Gemma 4, by setup's figures), else on the CPU (a few seconds
 a picture). No pictures on AMD cards for now.
 
 The `"vision"` section of `strata-<model>.json`:

@@ -5,7 +5,7 @@ card runs a range of the model's layers, and a token's rows cross from one card 
 NVLink or peer-to-peer access is needed; cards on x4 or x1 slots work. Each card keeps the routed experts of its own
 layers, so two cards hold about twice the experts one card holds.
 
-Laguna-S 2.1 and Laguna-XS 2.1 run this way on echo, on two RTX 5060 Ti 16 GB (PCIe 3.0 x8
+Laguna-S 2.1, Laguna-XS 2.1 and Occamy 1.0 run this way on echo, on two RTX 5060 Ti 16 GB (PCIe 3.0 x8
 and x4) under Linux, with `"layer_split": "auto"`. Laguna-S's speeds there: [BACKENDS.md](BACKENDS.md#laguna-on-two-16-gb-cards).
 AMD cards split the same way on Linux ([AMD_HIP.md](AMD_HIP.md)).
 

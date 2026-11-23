@@ -3,7 +3,7 @@
 strata-poly is CUDA-shaped code that also compiles for AMD cards through the `hip_compat` headers (the CUDA runtime,
 BLAS and virtual-memory calls mapped onto HIP's). Setup compiles it for the card; there is no ready-made AMD engine.
 
-**Status: experimental, and untested with Puddle's models.** Laguna and Gemma 4 have not been run on an AMD
+**Status: experimental, and untested with Puddle's models.** Laguna, Occamy and Gemma 4 have not been run on an AMD
 card. What is below was measured by PolyStrata's contributors on other models of the same engine. Reports are welcome
 ([COMMUNITY_BENCHMARKS.md](COMMUNITY_BENCHMARKS.md)).
 
@@ -96,7 +96,8 @@ space are unavailable. Only the literal value `1` enables it; unset, `0`, and
 other values retain the default path. Set it before starting the engine: a
 captured HIP graph retains the path selected at capture time.
 
-This targets the D256/GQA8 full-attention path of qwen35moe models such as Qwen3.6-35B-A3B:
+This targets the D256/GQA8 full-attention path of qwen35moe models such as Qwen3.6-35B-A3B (and Occamy's
+architecture):
 its published configuration has 16 query heads, two KV heads and 10
 full-attention layers among 40. Variants with the same geometry are eligible
 under the runtime gates above; linear-attention layers are unaffected.

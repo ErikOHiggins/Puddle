@@ -1,7 +1,7 @@
 <h1 align="center">Puddle</h1>
 
 <p align="center"><b>Large AI models on your own PC</b><br>
-Laguna-S 2.1, Laguna-XS 2.1, Nemotron 3.5 Bolt, Nemotron 3.5 Super and Gemma 4 26B-A4B · free and open source</p>
+Laguna-S 2.1, Laguna-XS 2.1, Occamy 1.0, Nemotron 3.5 Bolt, Nemotron 3.5 Super and Gemma 4 26B-A4B · free and open source</p>
 
 Puddle runs mixture-of-experts models that usually need a server on a normal PC: one or two graphics cards and the
 PC's RAM. They chat, write code and work with your apps and coding agents over an OpenAI- and Anthropic-compatible
@@ -9,9 +9,9 @@ API on `http://127.0.0.1:8080`. Nothing leaves your PC.
 
 Puddle is a fork of [PolyStrata](https://github.com/simplexai-labs/PolyStrata) by VecSzn, which is built on
 [Strata](https://github.com/Niko1221/Strata) by Niko1221. It keeps PolyStrata's second engine, **strata-poly**, with
-its server, web app and installer, and adds poolside's Laguna and NVIDIA's Nemotron 3.5 Bolt and Super, whose Mamba-2
-layers strata-poly runs with kernels of its own. Strata's Qwen3.8 engine and PolyStrata's other models are not part of
-Puddle.
+its server, web app and installer, and adds poolside's Laguna, Accio-Lab's Occamy and NVIDIA's Nemotron 3.5 Bolt and
+Super, whose Mamba-2 layers strata-poly runs with kernels of its own. Strata's Qwen3.8 engine and PolyStrata's other
+models are not part of Puddle.
 
 ## The models
 
@@ -19,20 +19,23 @@ Puddle.
 | --- | --- | --- | --- |
 | **[Laguna-S 2.1](https://huggingface.co/poolside/Laguna-S-2.1)** | poolside; quantized by Unsloth | UD-Q3_K_XL (54 GB, the default), UD-Q4_K_XL (73 GB), poolside's own Q4_K_M (96 GB) | no |
 | **[Laguna-XS 2.1](https://huggingface.co/poolside/Laguna-XS-2.1)** | poolside | Q4_K_M (20 GB) | no |
+| **[Occamy 1.0 35B-A3B](https://huggingface.co/Accio-Lab/occamy-1.0-GGUF)** | Accio-Lab (APEX quantization), a fine-tune of Qwen3.6-35B-A3B | APEX-Quality (23 GB, the default), APEX-I-Compact (17 GB), APEX-Balanced (25 GB) | yes |
 | **[Nemotron 3.5 Bolt 74B-A9B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF)** | NVIDIA; and Unsloth | NVIDIA's own 2-bit file (22 GB, the default), Unsloth's UD-Q5_K_XL (59 GB) | yes |
 | **[Nemotron 3.5 Super 120B-A12B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16)** | NVIDIA; quantized by Unsloth | UD-Q3_K_XL (66 GB) | yes |
 | **[Gemma 4 26B-A4B](https://huggingface.co/google/gemma-4-26B-A4B-it)** | Google; quantized by Unsloth | UD-Q3_K_M (13 GB, the default), UD-Q2_K_XL, UD-Q4_K_M, QAT-UD-Q4_K_XL | yes |
 
-All five are experimental. poolside's Laguna-S Q4_K_M keeps 8 of its 47 expert layers in BF16, which run on the
-processor every token, and it has a 1M-token rope where Unsloth's files have 262K; it has not been run yet.
+All six are experimental. poolside's Laguna-S Q4_K_M keeps 8 of its 47 expert layers in BF16, which run on the
+processor every token, and it has a 1M-token rope where Unsloth's files have 262K; it has not been run yet. Occamy's
+APEX-I-Compact and APEX-Balanced have not been run yet either.
 Both Nemotrons run on strata-poly, pictures too, and Bolt fits one 16 GB card there. `--family nemotron-bolt-llama`
 runs Bolt's file on llama.cpp's `llama-server` instead, which setup compiles, as a second model beside it (opt-in).
 Super's MTP block guesses the next tokens ahead, which made its writing 19 to 26% faster on echo
 ([docs/NEMOTRON.md](docs/NEMOTRON.md#the-mtp-block)).
 
 Which models Puddle offers: open-weight models whose license puts no restriction on their use, OpenMDW first (both
-Lagunas and both Nemotrons are OpenMDW-1.1), with Apache 2.0 where a gap needs filling (Gemma 4, which reads
-pictures on cards too small for Bolt).
+Lagunas and both Nemotrons are OpenMDW-1.1), with Apache 2.0 where a gap needs filling (Occamy, a general model that
+reads pictures and documents beside Laguna, which reads none; Gemma 4, which reads pictures on cards too small for
+Bolt).
 
 ## How fast is it?
 
@@ -59,11 +62,24 @@ at all 177 steps of four prompts, a 2,109-token one among them. A first look at 
 of its 20,480 experts in VRAM it wrote 13.7 tokens/s (32 tokens after a short prompt, the expert cache held still, no
 guesses).
 
+**Occamy 1.0 APEX-Quality** on the same two cards, through Puddle (`puddle.py benchmark`, 262K of context, pictures
+on, every expert a token used in VRAM; 2026-11-23):
+
+| Prompt, tokens | 21 | 2,542 | 26,785 | 97,041 |
+| --- | ---: | ---: | ---: | ---: |
+| Writes, tokens/s | 112.8 | 112.7 | 100.5 | 73.0 |
+| Reads the prompt, tokens/s | 131 | 3,464 | 4,675 | 3,710 |
+
+Its first choice was llama.cpp's at 127 of 128 steps (four prompts, llama.cpp choosing each token; the one difference
+a near tie), and at 32 of 32 on a picture ([docs/BACKENDS.md](docs/BACKENDS.md#occamy-on-two-16-gb-cards)).
+
+**Laguna-XS 2.1 Q4_K_M**, through Puddle the same way (2026-11-23): writes 137.0, 131.0, 110.8 and 75.3 tokens/s after a
+short prompt and prompts of about 2,500, 26,000 and 96,000 tokens, and reads those three at 3,365, 3,933 and 2,726.
+
 **Gemma 4 26B-A4B UD-Q3_K_M**, measured by PolyStrata: writes 92-93 tokens/s and reads a prompt at 2,240 on a laptop
 with an RTX 4070 Laptop (8 GB), a Core i7-14700HX and 32 GB of RAM; 353-356 and 8,420-8,480 on an RTX 5090.
 
-Laguna-XS has not been measured here yet. `./bench.sh` (`BENCH.bat`) measures your own PC and writes a
-report ([how](docs/COMMUNITY_BENCHMARKS.md)).
+`./bench.sh` (`BENCH.bat`) measures your own PC and writes a report ([how](docs/COMMUNITY_BENCHMARKS.md)).
 
 ## What you need
 
@@ -71,16 +87,18 @@ report ([how](docs/COMMUNITY_BENCHMARKS.md)).
 | --- | --- | --- | --- |
 | Laguna-S 2.1 | NVIDIA RTX 20 series or newer; it has run on two 16 GB cards | about 51 GB beside a 16 GB card (UD-Q3_K_XL) | 54 to 96 GB |
 | Laguna-XS 2.1 | same | about 17 GB beside a 16 GB card | 20 GB |
+| Occamy 1.0 | same | about 12 to 21 GB beside a 16 GB card | 17 to 25 GB, 0.9 more with pictures |
 | Nemotron 3.5 Bolt | NVIDIA RTX 20 series or newer, 16 GB or more (on llama-server, opt-in: 30 GB of VRAM together); it has run on two 16 GB cards | about 17 GB beside a 16 GB card, 10 beside two | 22 GB, 24 with pictures |
 | Nemotron 3.5 Super | NVIDIA RTX 20 series or newer, 16 GB or more; it has run on two 16 GB cards | about 47 GB beside two 16 GB cards, 62 beside one | 66 GB |
 | Gemma 4 26B-A4B | NVIDIA RTX 20 series or newer, 8 GB or more | about 15 to 21 GB beside an 8 GB card | 11 to 17 GB |
 
-A larger card needs less RAM, and two or three cards can share a model ([multi-GPU](docs/MULTI_GPU.md)). Laguna and
-Nemotron 3.5 Super have run on Linux only so far; setup says so and asks before it installs them on Windows. Nemotron 3.5 Bolt keeps
+A larger card needs less RAM, and two or three cards can share a model ([multi-GPU](docs/MULTI_GPU.md)). Laguna,
+Occamy and Nemotron 3.5 Super have run on Linux only so far; setup says so and asks before it installs them on Windows. Nemotron 3.5 Bolt keeps
 every layer on the cards and has run on Linux only; setup says Windows is untested, and offers it on no AMD card. AMD cards
 (Linux and Windows) and Pascal / Volta cards (with CUDA 12) are experimental: [AMD](docs/AMD_HIP.md),
 [older cards](docs/OLDER_GPUS.md). On a Mac (Apple Silicon), setup builds strata-poly's Metal engine; Laguna does not
-run on it yet, the Nemotrons are not offered there, and Gemma 4 has not been run there ([docs/MAC.md](docs/MAC.md)).
+run on it yet, the Nemotrons are not offered there, and Occamy and Gemma 4 have not been run there
+([docs/MAC.md](docs/MAC.md)).
 
 ## Install
 
@@ -105,7 +123,7 @@ installs the build tools first, and asks; the first compile takes 10 to 20 minut
 it. If the download stops, run it again: it continues where it stopped. Your browser opens the app at
 `http://127.0.0.1:8080`.
 
-`./setup.sh --family laguna-s` (or `laguna-xs`, `nemotron-bolt`, `nemotron-bolt-llama`, `nemotron-super`, `gemma4`) goes straight to one model, and `--model SIZE`
+`./setup.sh --family laguna-s` (or `laguna-xs`, `occamy`, `nemotron-bolt`, `nemotron-bolt-llama`, `nemotron-super`, `gemma4`) goes straight to one model, and `--model SIZE`
 to one size. Every option: [docs/INSTALL.md](docs/INSTALL.md).
 
 **Next time**, run `START-HERE.bat` (or `./setup.sh`) again: it starts right away and downloads nothing twice. Close
@@ -119,8 +137,8 @@ its window to stop the model. `UPDATE.bat` (`./update.sh`) updates Puddle withou
   Apps that use Anthropic's API: `http://127.0.0.1:8080/v1/messages` (Claude Code: `ANTHROPIC_BASE_URL=http://127.0.0.1:8080`).
   The OpenAI Responses API (Codex CLI): `/v1/responses`. All of it: [docs/API.md](docs/API.md).
 - **Thinking:** off, low, medium or high, in the chat menu or your app's "reasoning effort".
-- **Pictures** (Nemotron 3.5 Bolt, Gemma 4): say yes to "Images?" in setup, then attach pictures in the chat or your
-  app.
+- **Pictures** (Occamy, the Nemotrons, Gemma 4): say yes to "Images?" in setup, then attach pictures in the chat or
+  your app.
 - **From your phone or another PC:** `./setup.sh --setup --host 0.0.0.0 --api-key <secret>`. Always set a key.
 
 ## Something went wrong?
@@ -144,8 +162,9 @@ strata-poly's since phase 2, and both Nemotrons run on it; Bolt can run on llama
 Laguna-S 2.1 and Laguna-XS 2.1 are by [poolside](https://huggingface.co/poolside), under the OpenMDW-1.1 license;
 Laguna-S in [Unsloth](https://huggingface.co/unsloth)'s quantization and poolside's own. Nemotron 3.5 Bolt is by
 [NVIDIA](https://huggingface.co/nvidia), under the OpenMDW-1.1 license, in NVIDIA's own quantization; Nemotron 3.5 Super
-is by NVIDIA, under the OpenMDW-1.1 license, in Unsloth's quantization. Gemma 4 is by
-Google, under Apache 2.0, in Unsloth's quantization.
+is by NVIDIA, under the OpenMDW-1.1 license, in Unsloth's quantization. Occamy 1.0 is by
+[Accio-Lab](https://huggingface.co/Accio-Lab), under Apache 2.0, in its own APEX quantization; it is a fine-tune of
+Qwen3.6-35B-A3B (Apache 2.0). Gemma 4 is by Google, under Apache 2.0, in Unsloth's quantization.
 
 Puddle is built on [PolyStrata](https://github.com/simplexai-labs/PolyStrata) by VecSzn and its contributors, which is
 built on [Strata](https://github.com/Niko1221/Strata) by Niko1221 and its contributors (how Strata's engine works:
