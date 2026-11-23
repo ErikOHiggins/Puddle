@@ -33,7 +33,8 @@ Its tokenizer was checked twice on 2026-11-20. Puddle's tokenizer gives the same
 - **An NVIDIA card with 16 GB of VRAM or more.** On strata-poly the experts that do not fit the cards stay in RAM:
   setup estimates about 17 GB of RAM beside one 16 GB card; on two 16 GB cards every expert fits (measured, below).
   Unsloth's UD-Q5_K_XL (`--model UD-Q5_K_XL`, [below](#unsloths-ud-q5_k_xl)) has three times the bits in its experts:
-  about 54 GB of RAM beside one 16 GB card and 44 GB beside two by setup's estimate.
+  about 54 GB of RAM beside one 16 GB card and 44 GB beside two by setup's estimate. Its UD-Q4_K_XL
+  ([below](#unsloths-ud-q4_k_xl)) wants about 46 GB beside one and 35 GB beside two.
 - **On llama-server (`nemotron-bolt-llama`): NVIDIA cards with 30 GB of VRAM or more together**, one 32 GB card or two
   16 GB ones. Setup refuses less. It keeps every layer on the GPUs. Setup's RAM estimate there is 16 GB: the file goes
   to the GPUs, and llama-server keeps up to 8 GiB of earlier prompts in RAM (its prompt cache). Not measured.
@@ -41,7 +42,8 @@ Its tokenizer was checked twice on 2026-11-20. Puddle's tokenizer gives the same
   setup compiles llama-server for NVIDIA only.
 - **Windows:** setup compiles both engines there (MSVC and CUDA), and says that the model is untested. NVIDIA lists
   Windows as supported; nobody here has run it.
-- **Disk:** 22 GB for the model (59 GB for UD-Q5_K_XL), 1.7 GB more for pictures, and a few GB for the build.
+- **Disk:** 22 GB for the model (50 GB for UD-Q4_K_XL, 59 GB for UD-Q5_K_XL), 1.7 GB more for pictures, and a few
+  GB for the build.
 
 ## Install
 
@@ -53,8 +55,8 @@ Setup then:
 
 1. compiles strata-poly, as for every model, and with pictures its image encoder (strata-vision).
 2. downloads the model and its image encoder from NVIDIA's repository at a pinned revision, and checks their SHA-256
-   (UD-Q5_K_XL: from Unsloth's repository, into `nemotron-bolt-UD-Q5_K_XL/`, with NVIDIA's image encoder, the one in
-   `nemotron-bolt-24GB/` when it is there).
+   (UD-Q4_K_XL and UD-Q5_K_XL: from Unsloth's repository, each into a folder of its own such as
+   `nemotron-bolt-UD-Q5_K_XL/`, with NVIDIA's image encoder, the one in `nemotron-bolt-24GB/` when it is there).
    It keeps them in `Puddle-data/models/nemotron-bolt-24GB/`. Files you already have: move them there, and setup checks
    them instead of downloading them. Or give their folder with `--gguf-dir` to use them where they are.
 3. writes the model's tokenizer and chat template from the GGUF to `Puddle-data/packs/nemotron-bolt-24gb/`.
@@ -349,6 +351,22 @@ setup's config: both cards, a 256K context, pictures on, 256 tokens written):
 | 2,520 tokens | 214.5 | 11.9 s | 28.1 |
 | 26,460 tokens | 768.0 | 31.9 s | 30.6 |
 | 95,812 tokens | 736.1 | 100.0 s | 29.6 |
+
+### Unsloth's UD-Q4_K_XL
+
+The same repository and revision, 50,219,478,368 bytes in 3 parts: the routed experts 42.6 GB, up and down each a
+mix of IQ4_XS, Q4_K, Q5_K and Q6_K by layer (Q5_K the most, 25.4 GB), 5.16 bits a weight. `--model UD-Q4_K_XL`
+installs it. **Measured** on echo, 2026-11-23:
+
+| Prompt (tools/poly_parity.py, llama.cpp `08c252e22`) | first choices the same |
+| --- | ---: |
+| short (5 tokens) | 32 of 32 |
+| code (22 tokens) | 32 of 32 |
+| chat (11 tokens) | 32 of 32 |
+| doc (2,289 tokens) | 31 of 32 (the other a near tie) |
+| picture (318 tokens, NVIDIA's image encoder) | 31 of 32 (the other a near tie) |
+
+At a 32K context one RTX 5060 Ti 16 GB held 2,248 of its 13,824 experts (6.5 GiB), and two held 5,886 (16.9 GiB).
 
 ## Not there yet
 

@@ -133,6 +133,26 @@
   ],
   "url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF/resolve/e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246/"
  },
+ "nemotron-bolt/UD-Q4_K_XL": {
+  "arch": "nemotron_h_moe",
+  "layers": 88,
+  "tensors": 763,
+  "bytes": 50211555328,
+  "expert_bytes": {
+   "IQ4_XS": 9429843968,
+   "Q4_K": 3461087232,
+   "Q5_K": 25366888448,
+   "Q6_K": 4383375360
+  },
+  "experts_bpw": 5.157,
+  "bpw": 5.425,
+  "files": [
+   "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00001-of-00003.gguf",
+   "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00002-of-00003.gguf",
+   "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00003-of-00003.gguf"
+  ],
+  "url": "https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF/resolve/34841e360524d421c564cc3ed247aa04a865473b/UD-Q4_K_XL/"
+ },
  "nemotron-bolt/UD-Q5_K_XL": {
   "arch": "nemotron_h_moe",
   "layers": 88,

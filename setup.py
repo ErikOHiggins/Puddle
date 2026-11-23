@@ -313,11 +313,16 @@ FAMILIES = {
     # (tools/poly_parity.py: short, code, chat, a 2,190-token text, a picture).  Its vram_beside_gb: one RTX 5060 Ti 16
     # GB at 32K, 1,617 of 13,824 experts in VRAM (5.4 GiB); arena_gb: its routed experts, 50,288,885,760 bytes; ram_gb
     # by setup's estimate.  vram_card_gb: on both cards at 32K it held 4,620 (15.5 GiB), so the two took 16.4 GiB
-    # beside the experts together (Super's second card takes 5.7 too).
+    # beside the experts together (Super's second card takes 5.7 too).  UD-Q4_K_XL: the same repository and revision,
+    # its up and down experts each a mix of IQ4_XS, Q4_K, Q5_K and Q6_K by layer (5.16 bits a weight).  On echo
+    # (2026-11-23) its first choices were llama.cpp's at 158 of 160 steps, the other two near ties (the same five
+    # prompts, a 2,289-token text); one card at 32K held 2,248 experts (6.5 GiB): vram_beside_gb 9.4; both cards
+    # 5,886 (16.9 GiB), so its second card took 5.5 GiB, 0.3 less than the family's vram_card_gb (Q5's); arena_gb:
+    # its routed experts, 42,641,195,008 bytes; ram_gb by setup's estimate.
     "nemotron-bolt": {"title": "Nemotron 3.5 Bolt", "by": "NVIDIA", "engine": "poly",
                       "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
                       "about": "74B-A9B, reads pictures; a 22 GB file, ~17 GB of RAM beside a 16 GB card, every expert "
-                               "on two; a larger size too",
+                               "on two; two larger sizes too",
                       "hf": hf("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF"),
                       "file": "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-{q}.gguf", "shards": 1,
                       "tag": "nemotron-bolt-", "name": "nemotron-3.5-bolt", "vision": True, "experimental": True,
@@ -332,6 +337,13 @@ FAMILIES = {
                       "models": {"24GB": {"about": "NVIDIA's own 2-bit file (quantization-aware trained)",
                                           "download_gb": 22.0, "ram_gb": 17, "arena_gb": 17.1,
                                           "vram_beside_gb": 7.0},
+                                 "UD-Q4_K_XL": {"about": "Unsloth Dynamic: IQ4_XS / Q4_K / Q5_K / Q6_K experts, "
+                                                         "5.16 bits a weight; most on the CPU beside 16 GB cards",
+                                                "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF"),
+                                                "file": "{q}/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-{q}-0000{i}"
+                                                        "-of-00003.gguf",
+                                                "shards": 3, "download_gb": 50.2, "ram_gb": 46, "arena_gb": 42.6,
+                                                "vram_beside_gb": 9.4},
                                  "UD-Q5_K_XL": {"about": "Unsloth Dynamic: Q5_K / Q6_K up and Q6_K / Q8_0 down "
                                                          "experts, 6.08 bits a weight; most on the CPU beside 16 GB "
                                                          "cards",
@@ -342,6 +354,12 @@ FAMILIES = {
                                                 "vram_beside_gb": 10.5}},
                       "sha256": {"NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf":
                                  (22018326528, "91d63363e782c8a3d5f4be42816eba8e0d42dd2530bd07a7d0d2dc440599af75"),
+                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00001-of-00003.gguf":
+                                 (7876160, "d6f33b5e8a49ea57a0a3ae922dfd0b3033a19429993d3215fc4992f4270aa2df"),
+                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00002-of-00003.gguf":
+                                 (49524981280, "93c8485db6f9e9d26085acc368ca3b0993a36aa870e8f8b7748c1fbd174c6276"),
+                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00003-of-00003.gguf":
+                                 (686620928, "f97b7a5443b3f77150a1bf7bac6c00862411ee2f26b7bf57a599fb61dbe867df"),
                                  "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00001-of-00003.gguf":
                                  (7876064, "5bb0b06d303ccc6d4d0c8c230d5afd70600bf557059a4ba40c338e9451cd3033"),
                                  "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00002-of-00003.gguf":

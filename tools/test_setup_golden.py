@@ -9,7 +9,7 @@ added, the other entries unchanged; phase 2, 2026-11-21: Nemotron 3.5 Super adde
 2026-11-22: Super's MTP block runs, its entries without --no-draft, the other entries unchanged; 2026-11-22:
 Super's VRAM figures measured on echo, so 47 GB of RAM beside two 16 GB cards no longer takes it unasked;
 2026-11-22: Bolt's UD-Q5_K_XL added, the other entries unchanged; 2026-11-23: Occamy 1.0 back, with the tag
-occamy10-, the other entries unchanged);
+occamy10-, the other entries unchanged; 2026-11-23: Bolt's UD-Q4_K_XL added, the other entries unchanged);
 record it again only when a default changes on purpose.
 
     python -m unittest tools.test_setup_golden
