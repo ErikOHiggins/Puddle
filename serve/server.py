@@ -762,6 +762,7 @@ class StrataEngine:
         self.log_path = log
         self.proc, self.pump, self.log = None, None, None
         self.ended, self.unloaded = True, True
+        self.closing = False             # #195: close() is ending this engine (set before its QUIT)
         self.max_context = int(args[args.index("--max-context") + 1]) if "--max-context" in args else 4096
         self.can_stop = False            # the engine honours a STOP line mid-request (READY <ctx> stop)
         self.last = {}
@@ -879,6 +880,7 @@ class StrataEngine:
         if self.info.get("engine"):
             self.info["version"] = str(self.info["engine"])
         self.ended = False                              # READY: alive from here (restart() set it True, #344)
+        self.closing = False                            # #195: an end from here is unasked unless close() says so
         # the engine's stdout on a thread, so a request can wait with a timeout (heartbeats, cancel checks)
         self.lines: queue.Queue = queue.Queue()
         # --batch: concurrent requests in the engine's batch slots (see generate_batched).  The engine says how many
@@ -922,6 +924,7 @@ class StrataEngine:
 
     def _pump(self):
         proc, lines = self.proc, self.lines             # this process's: a restart replaces both (#344)
+        log = getattr(self, "log", None)                # #195: this process's log, though a restart opens another
         slot_q = self.slot_q
         line = None
         for line in proc.stdout:
@@ -944,13 +947,37 @@ class StrataEngine:
                 except (IndexError, ValueError):
                     pass
             lines.put(line)
+        unasked = False
         if self.proc is proc:                           # a killed engine's pump must not mark its successor dead
+            # the server sets one of these before it ends the engine itself (close, restart, a lost step, FATAL)
+            unasked = not getattr(self, "ended", False) and not getattr(self, "closing", False)
             self.ended = True                           # its output closed: it is gone, even before the OS says so
             if line and line.startswith("ERR"):         # #997 #890: why it exited, though no request may read it
                 self.last_err = line[4:].strip()        # (a failed batch window: every request reads its slot)
         lines.put(None)
         for q in slot_q:
             q.put(None)
+        if unasked:
+            self._note_unasked_exit(proc, log)
+
+    @staticmethod
+    def _note_unasked_exit(proc, log) -> None:
+        """#195 (from PolyStrata 0.2.19-poly.1): an engine that ended while the server was not ending it, idle or not,
+        is named with the time and its exit status in the server's output and in its own log.  An idle one left
+        nothing behind before: /health said loaded until it did not, and the engine log just stopped."""
+        try:
+            words = engine_exit_words(proc.wait(timeout=5))
+        except Exception:                               # noqa: BLE001 - a note must never stop the pump's end
+            words = ""
+        msg = (f"[strata] {time.strftime('%Y-%m-%d %H:%M:%S')} the engine ended without the server asking it to "
+               f"({words or 'its exit status could not be read'}); the next request starts it again")
+        print(msg, flush=True)
+        if log not in (None, subprocess.DEVNULL):
+            try:
+                log.write(msg + "\n")
+                log.flush()
+            except (OSError, ValueError):               # a closed log: the line above is what is left
+                pass
 
     def death_note(self) -> str:
         """Why the engine most likely ended, from the end of its log: its own watchdog (issue #29), else RAM."""
@@ -2025,6 +2052,7 @@ class StrataEngine:
         try:
             if self.proc.poll() is None:
                 try:
+                    self.closing = True                 # #195: this end is the server's, not one to name
                     self.proc.stdin.write("QUIT\n")
                     self.proc.stdin.flush()
                     self.proc.stdin.close()  # Windows' detached stdin reader must see EOF before shutdown

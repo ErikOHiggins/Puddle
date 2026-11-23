@@ -28,6 +28,7 @@
 #include <mutex>
 #include <random>
 #include <stdexcept>
+#include <exception>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -302,11 +303,18 @@ public:
 private:
     void read() {
         std::string l;
+        bool quit = false;
         while (std::getline(std::cin, l)) {
             if (!l.empty() && l.back() == '\r') l.pop_back();
+            quit = quit || l == "QUIT";
             if (l == "STOP") stop.store(true);
             else push(l);
         }
+        // The server closes the input after its QUIT; without one, the server is gone (#195: the engine then
+        // ended with nothing in its log)
+        if (!quit)
+            std::fprintf(stderr, "strata-poly: the engine's input closed without a QUIT (the server ended, or was "
+                                 "ended); the engine ends\n");
         push("QUIT");
     }
     void push(std::string s) {
@@ -625,6 +633,9 @@ int serve(Session& ss) {
                 (long long) engine.vram_free_mib(), (int) slots.size());
     std::printf("READY %d stop\n", engine.max_context());
     std::fflush(stdout);
+    // READY goes to the server alone: without this line the log of an engine that waits for its first request ends
+    // where the log of one that hangs before READY does (#195)
+    std::fprintf(stderr, "strata-poly: ready for requests (context %d)\n", engine.max_context());
 
     static Lines lines;   // its thread may still be in a read when this function returns
     Pictures pictures;    // the engine reads the last request's until the next one's are set
@@ -1266,7 +1277,28 @@ void no_power_throttling() {
 #endif
 }
 
+// An exception that nothing catches (on a thread other than main()'s, whose catch says what it was) ends the process
+// through std::terminate, which writes nothing: the log of such an engine just stops (#195).  It aborts after its
+// line, as the default handler does.
+void on_terminate() {
+    std::string why = "std::terminate() without an exception";
+    if (const std::exception_ptr e = std::current_exception()) {
+        why = "an exception that nothing caught";
+        try {
+            std::rethrow_exception(e);
+        } catch (const std::exception& x) {
+            why += ": ";
+            why += x.what();
+        } catch (...) {
+        }
+    }
+    std::fprintf(stderr, "strata-poly: %s; the engine ends\n", why.c_str());
+    std::fflush(stderr);
+    std::abort();
+}
+
 int main(int argc, char** argv) {
+    std::set_terminate(on_terminate);
     no_power_throttling();
     Options o;
     CacheFlags cache;
@@ -1479,6 +1511,9 @@ int main(int argc, char** argv) {
             rc = once(ss, ids, pictures, image_pad, max_new, s, top_probs);
         }
         engine.save_profile();
+        // with the catch below and on_terminate(), every way out the engine takes itself leaves a last line: a log
+        // that stops without one is of a process that crashed or that something else ended (#195)
+        if (want_serve) std::fprintf(stderr, "strata-poly: the engine ends (exit code %d)\n", rc);
         return rc;
     } catch (const std::exception& e) {
         std::fprintf(stderr, "strata-poly: %s\n", e.what());
