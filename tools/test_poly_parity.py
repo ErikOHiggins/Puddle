@@ -25,6 +25,17 @@ class Compare(unittest.TestCase):
         self.assertEqual((c["agree"], c["first"], c["ties"]), (2, None, 0))
         self.assertAlmostEqual(c["kl_mean"], 0.0, places=6)
 
+    def test_picture_marks(self):
+        """A picture's tokens by which the model has as single tokens: Qwen-VL's (Occamy), Nemotron 3.5's, or none."""
+        qwen = {"<|vision_start|>": [11], "<|vision_end|>": [12], "<|image_pad|>": [13]}
+        nemotron = {"<img>": [21], "</img>": [22], "<image>": [23]}
+        split = lambda t: list(range(len(t)))                       # noqa: E731  every character a token
+        self.assertEqual(P.picture_marks(lambda t: qwen.get(t) or split(t)), [[11], [12], [13]])
+        self.assertEqual(P.picture_marks(lambda t: nemotron.get(t) or split(t)), [[21], [22], [23]])
+        self.assertIsNone(P.picture_marks(split))
+        both = dict(qwen, **nemotron)                                # Nemotron's first: its prompt as before
+        self.assertEqual(P.picture_marks(lambda t: both.get(t) or split(t)), [[21], [22], [23]])
+
     def test_a_near_tie_and_a_real_difference(self):
         ref, tops = [1, 2], [[(1, 0.52), (9, 0.48)], [(2, 0.9), (4, 0.1)]]
         c = P.compare(ref, tops, [[(9, 0.51), (1, 0.49)], [(4, 0.7), (2, 0.3)]])

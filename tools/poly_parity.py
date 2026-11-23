@@ -10,8 +10,10 @@
    is a near tie: either engine's two likeliest within 0.1), and KL(llama.cpp || strata-poly) over llama.cpp's 10
 
 With --image (and --mmproj), a "picture" prompt too: llama-server reads the picture through its own mtmd, from its
-media marker and the picture's file; strata-poly reads the same text with <img>, strata-vision's rows of the picture
-(engine-poly/ by default, --vision) and </img>, as mtmd puts them, and the two prompts' token counts are compared.
+media marker and the picture's file; strata-poly reads the same text with the picture's opening token, strata-vision's
+rows of the picture (engine-poly/ by default, --vision) and its closing token, as mtmd puts them (Nemotron 3.5: <img>
+and </img>; a Qwen-VL model such as Occamy: <|vision_start|> and <|vision_end|>), and the two prompts' token counts
+are compared.
 
 The server must not be running (both engines need the cards).  The report also goes to --out/parity-<time>.txt, the
 raw steps to parity-<time>.json.  Exit 0 when every step's first choice agrees or parts at a near tie; 1 otherwise;
@@ -96,6 +98,22 @@ def lib_env(dirs: list[str]) -> dict:
 
 
 PICTURE = ("Here is a picture:\n", "\nWhat does it show? Describe it in detail.")   # the text before it, and after it
+# A picture's tokens: the two llama-server's mtmd puts around its rows (img_beg, img_end), and the one the model's
+# template writes for it, whose place strata-poly's --image-pad fills with the rows.  Nemotron 3.5's first (mtmd's
+# nemotron_omni), so its prompt is the one it always was; then Qwen-VL's (mtmd's qwen2vl, qwen25vl and qwen3vl;
+# serve/server.py's IMAGE_PAD).  Qwen3.6's vocabulary (its tokenizer.json, read 2026-11-23) has these three and
+# none of Nemotron's.
+PICTURE_MARKS = (("<img>", "</img>", "<image>"), ("<|vision_start|>", "<|vision_end|>", "<|image_pad|>"))
+
+
+def picture_marks(tok) -> list | None:
+    """The first of PICTURE_MARKS whose three are each one token of the model's (tok(text) -> its ids): their ids
+    [[begin], [end], [pad]]; None when no set is."""
+    for marks in PICTURE_MARKS:
+        ids = [tok(m) for m in marks]
+        if all(len(x) == 1 for x in ids):
+            return ids
+    return None
 
 
 def encode_picture(vision: str, mmproj: str, gguf: str, image: str, out: Path, env: dict) -> int:
@@ -218,15 +236,18 @@ def main(argv=None) -> int:
         marker = None
         for k, text in prompts.items():
             if k == "picture":
-                # the same tokens for strata-poly: the text, <img>, a pad a row of the picture, </img>, the text
+                # the same tokens for strata-poly: the text, the picture's opening token, a pad a row of the
+                # picture, its closing token, the text
                 with urllib.request.urlopen(base + "/props", timeout=30) as r:
                     marker = json.loads(r.read()).get("media_marker")
                 tok = lambda t, first: post(base, "/tokenize", {"content": t, "add_special": first,   # noqa: E731
                                                                 "parse_special": True})["tokens"]
-                img, img_end, pad = tok("<img>", False), tok("</img>", False), tok("<image>", False)
-                if not (marker and len(img) == len(img_end) == len(pad) == 1):
-                    say("   the picture prompt needs llama-server's media marker and single <img>, </img>, <image>")
+                marks = picture_marks(lambda t: tok(t, False))
+                if not (marker and marks):
+                    say("   the picture prompt needs llama-server's media marker and, as single tokens, one of: "
+                        + "; ".join(" ".join(m) for m in PICTURE_MARKS))
                     return 2
+                img, img_end, pad = marks
                 ids[k] = tok(text[0], True) + img + pad * n_rows + img_end + tok(text[1], False)
                 pictures[k] = (rows_file, pad[0], n_rows)
                 picture = base64.b64encode(Path(a.image).read_bytes()).decode("ascii")
