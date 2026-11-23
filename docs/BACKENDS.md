@@ -2142,6 +2142,18 @@ top ten moved more from the old path to the kernel (KL mean 2.05e-2) than from a
 (1.35e-2), and changed one first choice where the batch's change made two. `tools/needle_bench.py` found the code
 word 6 times of 6 in prompts of 33,736 and 106,574 tokens (depths 10, 50 and 90%) with it and without it.
 
+Laguna-XS 2.1 Q4_K_M, whose full layers have the same shape, the same day through Puddle (every expert on the cards):
+
+| Laguna-XS, prompt read | without | with |
+| --- | ---: | ---: |
+| 2,549 tokens | 2,846.1 tokens/s | 3,110.4 |
+| 26,455 tokens | 2,308.6 | 3,814.2 |
+| 95,829 tokens | 993.2 | 2,679.3 |
+
+Writing was the same (60 to 135 tokens/s either way). On the 2,151-token text its first choices were llama-server's
+at 62 of 64 steps with it and without it; at the same step both parted from llama-server's choice (0.567 there), the
+old path giving that token 0.114 and the kernel 0.370, and KL mean 7.20e-2 without, 6.38e-2 with.
+
 **Measured** on an RTX 3070 8 GB (PCIe 3.0 x16; Ryzen 5 2600X, 32 GB DDR4-3200; Cyber-Tiel-Coder 35B-A3B
 UD-Q4_K_XL, `--max-context 262144`, q8_0 cache), a coding-agent conversation of growing turns: prompt read 1,437 -> 1,824 tokens/s at 32K of context, 749 -> 1,268 at 103K,
 610 -> 1,066 at 143K (+65-85% at 103-143K against the range of earlier control runs); decode the same within 1
