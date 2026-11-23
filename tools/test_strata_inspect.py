@@ -45,7 +45,7 @@ class Verdict(unittest.TestCase):
 
     def test_another_file_of_a_family_s_architecture(self):
         for key, title in (("laguna-s/UD-Q3_K_XL", "Laguna S 2.1"), ("laguna-xs/Q4_K_M", "Laguna XS 2.1"),
-                           ("gemma4/UD-Q3_K_M", "Gemma 4 26B-A4B")):
+                           ("occamy/APEX-Quality", "Occamy 1.0 35B-A3B"), ("gemma4/UD-Q3_K_M", "Gemma 4 26B-A4B")):
             with self.subTest(key=key):
                 fp = self.fp(key)
                 fp["expert_bytes"] = {"Q5_K": 1}       # experts stored as in no file setup offers
@@ -62,7 +62,7 @@ class Verdict(unittest.TestCase):
         self.assertIn("64 layers", sentence)
 
     def test_other_architecture(self):
-        for arch in ("qwen4exp", "glm5-next", "deepseek4", "qwen3moe", "qwen35moe"):
+        for arch in ("qwen4exp", "glm5-next", "deepseek4", "qwen3moe"):
             with self.subTest(arch=arch):
                 fp = self.fp("gemma4/UD-Q3_K_M")
                 fp["arch"] = arch

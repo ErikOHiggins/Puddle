@@ -1,7 +1,7 @@
-"""Puddle's own families (phase 1c): Laguna-S 2.1 and Laguna-XS 2.1, beside Gemma 4; and Nemotron 3.5 Bolt on
-strata-poly, with llama-server (B4) as its opt-in.  Each size's files are pinned (revision, size, SHA-256), the run
-config a --yes install writes has the names, the KV format and the image encoder the live configs on echo have,
-and Laguna-S is the menu's default.
+"""Puddle's own families (phase 1c): Laguna-S 2.1, Laguna-XS 2.1 and Occamy 1.0, beside Gemma 4; and Nemotron 3.5
+Bolt on strata-poly, with llama-server (B4) as its opt-in.  Each size's files are pinned (revision, size, SHA-256),
+the run config a --yes install writes has the names, the KV format and the image encoder the live configs on echo
+have, and Laguna-S is the menu's default.
 Mocked (tools/poly_setup_harness.py): no GPU, no downloads.
 
     python -m unittest tools.test_setup_puddle_families
@@ -21,7 +21,8 @@ from tools.poly_setup_harness import PolyMain  # noqa: E402
 SHA = re.compile(r"/resolve/[0-9a-f]{40}/$")
 # echo's run configs (local/liveConfigs, 2026-11-19): the names clients ask the server for
 LIVE_NAMES = {("laguna-s", "UD-Q3_K_XL"): ("laguna-s-2.1-ud-q3_k_xl", "Laguna S 2.1 UD-Q3_K_XL"),
-              ("laguna-xs", "Q4_K_M"): ("laguna-xs-2.1-q4_k_m", "Laguna XS 2.1 Q4_K_M")}
+              ("laguna-xs", "Q4_K_M"): ("laguna-xs-2.1-q4_k_m", "Laguna XS 2.1 Q4_K_M"),
+              ("occamy", "APEX-Quality"): ("occamy-1.0-35b-a3b-apex-quality", "Occamy 1.0 35B-A3B APEX-Quality")}
 
 
 def arg(cfg, flag):
@@ -31,11 +32,12 @@ def arg(cfg, flag):
 
 class Catalog(unittest.TestCase):
     def test_the_families_and_their_order(self):
-        self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "nemotron-bolt", "nemotron-bolt-llama",
-                                                "nemotron-super", "gemma4"])
+        self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "occamy", "nemotron-bolt",
+                                                "nemotron-bolt-llama", "nemotron-super", "gemma4"])
         self.assertEqual(list(setup.family_models("nemotron-bolt")), ["24GB", "UD-Q5_K_XL"])   # 24GB the default
         self.assertEqual(list(setup.family_models("laguna-s")), ["UD-Q3_K_XL", "UD-Q4_K_XL", "Q4_K_M"])
         self.assertEqual(list(setup.family_models("laguna-xs")), ["Q4_K_M"])
+        self.assertEqual(list(setup.family_models("occamy")), ["APEX-Quality", "APEX-I-Compact", "APEX-Balanced"])
 
     def test_every_file_is_pinned_with_its_size_and_sha256(self):
         for family, fam in setup.FAMILIES.items():
@@ -61,6 +63,7 @@ class Catalog(unittest.TestCase):
     def test_the_architectures(self):
         self.assertEqual(setup.POLY_GGUF_ARCHS["laguna-s"], ("laguna",))
         self.assertEqual(setup.POLY_GGUF_ARCHS["laguna-xs"], ("laguna",))
+        self.assertEqual(setup.POLY_GGUF_ARCHS["occamy"], ("qwen35moe",))
         self.assertEqual(setup.POLY_GGUF_ARCHS["gemma4"], ("gemma4",))
 
     def test_laguna_s_shards_and_poolside_s_own_file(self):
@@ -78,9 +81,10 @@ class Install(unittest.TestCase):
     setUp, tearDown, main = PolyMain.setUp, PolyMain.tearDown, PolyMain.main
 
     def test_each_family_writes_its_sampling(self):
-        # Laguna: echo's testing (min_p 0.1); Gemma 4: Google's model card
+        # Laguna: echo's testing (min_p 0.1); Occamy: echo's live config; Gemma 4: Google's model card
         want = {"laguna-s": {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1},
                 "laguna-xs": {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1},
+                "occamy": {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 1.5},
                 "nemotron-bolt": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
                 "nemotron-bolt-llama": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
                 "nemotron-super": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
@@ -147,6 +151,28 @@ class Install(unittest.TestCase):
         self.assertEqual(code, 0, out[-3000:])
         self.assertEqual(arg(cfg, "--kv"), "q8_0")
         self.assertEqual(Path(arg(cfg, "--model")).parts[-2:], ("laguna-xs21-Q4_K_M", "Laguna-XS-2.1-Q4_K_M.gguf"))
+
+    def test_occamy_with_images(self):
+        code, out, cfg = self.main(["--vision", "yes"], family="occamy", ram=64.0, vram=15.9, n_gpus=2)
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertIsNone(arg(cfg, "--kv"))                        # fp16, the engine's default, as on echo
+        self.assertEqual(Path(cfg["vision"]["mmproj"]).name, "mmproj-occamy-1.0-F16.gguf")
+        self.assertIn("https://huggingface.co/Accio-Lab/occamy-1.0-GGUF/resolve/"
+                      "15027de49a5f8bbb5a131ed3fcfc1b54a543089d/mmproj-occamy-1.0-F16.gguf", self.downloads)
+        self.assertIn("https://huggingface.co/Accio-Lab/occamy-1.0-APEX-GGUF/resolve/"
+                      "7c731908b05f5cbd19002b23d421aa102c0dd0de/occamy-1.0-APEX-Quality.gguf", self.downloads)
+        self.assertTrue(cfg["vision"]["gpu"])                       # 2x 16 GB: the encoder on the GPU
+        self.assertIn("Apache 2.0", out)
+        # folders of its own tag, not PolyStrata's occamy-APEX-QUALITY and packs/occamy-apex-quality: the engine
+        # writes its expert counts into the pack
+        self.assertEqual(Path(arg(cfg, "--model")).parts[-2:],
+                         ("occamy10-APEX-Quality", "occamy-1.0-APEX-Quality.gguf"))
+        self.assertEqual(Path(arg(cfg, "--expert-profile")).parent.name, "occamy10-apex-quality")
+
+    def test_a_small_pc_gets_occamy_s_smaller_size(self):
+        code, out, cfg = self.main(family="occamy", ram=20.0, vram=7.9)
+        self.assertEqual(code, 0, out[-3000:])
+        self.assertEqual(cfg["model_name"], "occamy-1.0-35b-a3b-apex-i-compact")
 
     def test_a_small_pc_gets_the_smaller_size(self):
         code, out, cfg = self.main(family="gemma4", ram=14.0, vram=7.9)   # UD-Q3_K_M wants more

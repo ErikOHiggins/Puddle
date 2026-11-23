@@ -423,6 +423,10 @@ class Install(FakeRoot):
         res, err = self.call("strata_models", {})
         self.assertFalse(err, res)
         by = {f["family"]: f["sizes"] for f in res["families"]}
+        self.assertEqual([(x["model"], x["download_gb"], x["on_this_pc"], x["id"]) for x in by["occamy"]],
+                         [("APEX-Quality", 22.8, "fits", "occamy10-apex-quality"),
+                          ("APEX-I-Compact", 16.5, "fits", "occamy10-apex-i-compact"),
+                          ("APEX-Balanced", 25.3, "fits", "occamy10-apex-balanced")])
         self.assertEqual((by["gemma4"][0]["download_gb"], by["gemma4"][0]["images"]), (13.2, True))
         self.assertFalse(next(f for f in res["families"] if f["family"] == "laguna-s")["images"])
 

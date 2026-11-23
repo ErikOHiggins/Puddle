@@ -85,6 +85,29 @@ FALLBACK_FAMILIES = {'laguna-s': {'title': 'Laguna S 2.1',
                                      'ram_gb': 17,
                                      'arena_gb': 19.0,
                                      'vram_beside_gb': 5.0}}},
+ 'occamy': {'title': 'Occamy 1.0 35B-A3B',
+            'by': 'Accio-Lab; APEX quantization',
+            'about': "Qwen3.6-35B-A3B's architecture, reads pictures; a 23 GB file, ~18 GB of RAM beside a 16 GB "
+                     'card; runs on 2x RTX 5060 Ti 16 GB with images',
+            'tag': 'occamy10-',
+            'engine': 'poly',
+            'vision': True,
+            'experimental': True,
+            'models': {'APEX-Quality': {'about': 'IQ4_XS, Q5_K and Q6_K experts (APEX); the one run every day',
+                                        'download_gb': 22.8,
+                                        'ram_gb': 18,
+                                        'arena_gb': 20.7,
+                                        'vram_beside_gb': 4.4},
+                       'APEX-I-Compact': {'about': 'Q3_K and Q4_K experts (APEX): the least RAM; not run yet',
+                                          'download_gb': 16.5,
+                                          'ram_gb': 12,
+                                          'arena_gb': 14.9,
+                                          'vram_beside_gb': 4.2},
+                       'APEX-Balanced': {'about': 'Q5_K and Q6_K experts (APEX): higher quality; not run yet',
+                                         'download_gb': 25.3,
+                                         'ram_gb': 21,
+                                         'arena_gb': 23.2,
+                                         'vram_beside_gb': 4.4}}},
  'nemotron-bolt': {'title': 'Nemotron 3.5 Bolt',
                    'by': 'NVIDIA',
                    'about': '74B-A9B, reads pictures; a 22 GB file, ~17 GB of RAM beside a 16 GB card, every '
@@ -1023,7 +1046,7 @@ def tool_defs(families: dict, contexts: list) -> list:
                                                             "(default true; takes a second or two)"}}},
          "annotations": ro},
         {"name": "strata_models", "title": "Puddle models",
-         "description": "The models and sizes Puddle's setup offers (families: laguna-s = Laguna S 2.1, laguna-xs = Laguna XS 2.1, gemma4 = Gemma 4 26B-A4B), with "
+         "description": "The models and sizes Puddle's setup offers (families: laguna-s = Laguna S 2.1, laguna-xs = Laguna XS 2.1, occamy = Occamy 1.0 35B-A3B, gemma4 = Gemma 4 26B-A4B), with "
                         "download size, RAM needed, whether each fits this PC, which are installed, the context "
                         "lengths, and the recommendation. Read-only.",
          "inputSchema": {"type": "object", "additionalProperties": False, "properties": {}},
@@ -1039,7 +1062,7 @@ def tool_defs(families: dict, contexts: list) -> list:
                         "After it finishes, start the model with strata_start.",
          "inputSchema": {"type": "object", "additionalProperties": False, "properties": {
              "family": {"type": "string", "enum": list(families),
-                        "description": "laguna-s = Laguna S 2.1, laguna-xs = Laguna XS 2.1, gemma4 = Gemma 4 26B-A4B: see strata_models"},
+                        "description": "laguna-s = Laguna S 2.1, laguna-xs = Laguna XS 2.1, occamy = Occamy 1.0 35B-A3B, gemma4 = Gemma 4 26B-A4B: see strata_models"},
              "model": {"type": "string", "enum": list(dict.fromkeys(m for f in families.values() for m in f["models"])),
                        "description": "the size (quantization): see strata_models"},
              "context": {"type": "integer", "enum": contexts,
@@ -1623,7 +1646,7 @@ class Tools:
 
 
 # ------------------------------------------------------------------------------------------------ MCP over stdio
-INSTRUCTIONS = ("Puddle runs a large AI model (Laguna or Gemma 4, mixtures of experts) locally on this PC's "
+INSTRUCTIONS = ("Puddle runs a large AI model (Laguna, Occamy or Gemma 4, mixtures of experts) locally on this PC's "
                 "GPU and RAM, with an OpenAI- and Anthropic-compatible server on http://127.0.0.1:8080. Call "
                 "strata_status first. To install: strata_install (it returns a plan; get the user's OK for the 11-96 GB "
                 "download, "

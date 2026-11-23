@@ -1,4 +1,4 @@
-"""Tests on a synthetic qwen35moe GGUF of a 122B shape (the qwen35 engine Puddle keeps until Bolt's Mamba-2 path works): the GGUF metadata, the
+"""Tests on a synthetic qwen35moe GGUF of a 122B shape (qwen35moe is Occamy's architecture): the GGUF metadata, the
 model registry, the tokenizer rules, the streaming reasoning/tool parser, and Qwen35 load_geometry validation.
 
     python -m unittest tools.test_strata_qwen35moe

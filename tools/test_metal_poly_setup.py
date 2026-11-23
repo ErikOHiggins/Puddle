@@ -135,7 +135,7 @@ class Options(unittest.TestCase):
             self.assertIn('--metal-optimize', command)
             self.assertEqual(P.flag_value(command, '--metal-memory'), 'balanced')
             self.assertIn(P.flag_value(command, '--kv'), ('fp16', 'q8_0'))
-        if P.Q8_FAMILIES & set(M.MAC_POLY_FAMILIES):                # none now (Occamy went)
+        if P.Q8_FAMILIES & set(M.MAC_POLY_FAMILIES):                # Occamy (1c)
             self.assertTrue(any(P.flag_value(command, '--kv') == 'q8_0' for command in captured))
 
 

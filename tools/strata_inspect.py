@@ -30,7 +30,7 @@ FINGERPRINTS = ROOT / "data" / "gguf_fingerprints.json"
 # the architectures strata-poly runs for Puddle's families -> FAMILIES[family]["title"] in setup.py (resolve_custom_gguf
 # maps a "family" verdict back to --family / --model by that title).  Laguna-S and Laguna-XS share one architecture:
 # their layer count tells them apart, as it tells Nemotron 3.5 Super (88 layers and its MTP block) from Bolt (88).
-POLY_ARCHS = {"laguna": {48: "Laguna S 2.1", 40: "Laguna XS 2.1"},
+POLY_ARCHS = {"laguna": {48: "Laguna S 2.1", 40: "Laguna XS 2.1"}, "qwen35moe": "Occamy 1.0 35B-A3B",
               "nemotron_h_moe": {89: "Nemotron 3.5 Super", 88: "Nemotron 3.5 Bolt"}, "gemma4": "Gemma 4 26B-A4B"}
 # the architectures only a llama-server family runs ("engine": "llama-server"), whose own file alone setup installs.
 # None now: Bolt's llama-server family (nemotron-bolt-llama) has the file of the strata-poly family above.
@@ -127,7 +127,7 @@ def verdict(fp: dict, table: dict) -> tuple[str, str]:
                       "NVIDIA's own file on llama-server, and sets up no other file of it")
     if fp["arch"] not in POLY_ARCHS:
         return "no", (f"not a model Puddle runs (architecture {fp['arch']!r}): its strata-poly engine runs "
-                      + ", ".join(POLY_ARCHS) + " (Laguna, the Nemotrons, Gemma 4)"
+                      + ", ".join(POLY_ARCHS) + " (Laguna, Occamy, the Nemotrons, Gemma 4)"
                       + (", and llama-server " + ", ".join(LLAMA_ARCHS) + " (" + ", ".join(LLAMA_ARCHS.values()) + ")"
                          if LLAMA_ARCHS else ""))
     if not title:

@@ -69,6 +69,55 @@
   ],
   "url": "https://huggingface.co/poolside/Laguna-XS-2.1-GGUF/resolve/1a37c0a5fb8c7a18e6106decb6be6327d1b63fa6/"
  },
+ "occamy/APEX-Quality": {
+  "arch": "qwen35moe",
+  "layers": 40,
+  "tensors": 733,
+  "bytes": 22808412672,
+  "expert_bytes": {
+   "IQ4_XS": 8556380160,
+   "Q5_K": 5536481280,
+   "Q6_K": 6606028800
+  },
+  "experts_bpw": 5.141,
+  "bpw": 5.264,
+  "files": [
+   "occamy-1.0-APEX-Quality.gguf"
+  ],
+  "url": "https://huggingface.co/Accio-Lab/occamy-1.0-APEX-GGUF/resolve/7c731908b05f5cbd19002b23d421aa102c0dd0de/"
+ },
+ "occamy/APEX-I-Compact": {
+  "arch": "qwen35moe",
+  "layers": 40,
+  "tensors": 733,
+  "bytes": 16527862272,
+  "expert_bytes": {
+   "Q3_K": 10380902400,
+   "Q4_K": 4529848320
+  },
+  "experts_bpw": 3.703,
+  "bpw": 3.815,
+  "files": [
+   "occamy-1.0-APEX-I-Compact.gguf"
+  ],
+  "url": "https://huggingface.co/Accio-Lab/occamy-1.0-APEX-GGUF/resolve/7c731908b05f5cbd19002b23d421aa102c0dd0de/"
+ },
+ "occamy/APEX-Balanced": {
+  "arch": "qwen35moe",
+  "layers": 40,
+  "tensors": 733,
+  "bytes": 25324995072,
+  "expert_bytes": {
+   "Q5_K": 16609443840,
+   "Q6_K": 6606028800
+  },
+  "experts_bpw": 5.766,
+  "bpw": 5.845,
+  "files": [
+   "occamy-1.0-APEX-Balanced.gguf"
+  ],
+  "url": "https://huggingface.co/Accio-Lab/occamy-1.0-APEX-GGUF/resolve/7c731908b05f5cbd19002b23d421aa102c0dd0de/"
+ },
  "nemotron-bolt/24GB": {
   "arch": "nemotron_h_moe",
   "layers": 88,

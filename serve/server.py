@@ -3639,7 +3639,7 @@ class Service:
             if key in special}
         # how the model writes a tool call (serve/frontend.py's OutputParser)
         pre = getattr(tokenizer, "pre", "")
-        # (Laguna writes GLM's calls; qwen35 models and Nemotron's the XML <function=...> ones)
+        # (Laguna writes GLM's calls; Occamy (qwen35moe) and the Nemotrons the XML <function=...> ones)
         self.call_format = "glm" if pre == "laguna" else "gemma" if pre == "gemma4" else "function"
         openers = TURN_OPENERS_OF_PRE.get(pre) or TURN_OPENERS[self.call_format]
         # templates that read a tool as OpenAI sends it, {"type": "function", "function": {...}}: Gemma's looks

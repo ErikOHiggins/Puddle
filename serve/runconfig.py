@@ -28,7 +28,7 @@ EDITABLE = [
                             "answering 400 (the system prompt and the last turn stay)"),
     ("truncate_middle", "bool", "Trim the middle of an oversized text prompt, keeping its beginning and ending"),
     ("preserve_thinking", "bool", "Keep the thinking of earlier turns in the prompt (templates that support it: "
-                                  "Laguna)"),
+                                  "Laguna, Occamy)"),
     ("anthropic_thinking", ("enum", ["model", "on_request"]),
      "Anthropic requests that do not ask for thinking: think as the model does (model) or not (on_request)"),
     ("aliases", "names", "Other model names the server lists and answers to (comma-separated)"),

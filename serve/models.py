@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 # what an architecture is run by, and what the registry calls it
 BACKENDS = {
     "laguna": "laguna",          # Laguna-S 2.1, Laguna-XS 2.1
-    "qwen35moe": "qwen35moe",    # no setup family now; the engine keeps it until Bolt's Mamba-2 path runs
+    "qwen35moe": "qwen35moe",    # Occamy 1.0
     "gemma4": "gemma4",
     "nemotron_h_moe": "nemotron_h_moe",   # Nemotron 3.5 Super and Bolt (Bolt on llama-server: opt-in)
 }

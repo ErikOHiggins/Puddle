@@ -576,6 +576,138 @@
    "tokenizer": "<T>/data/packs/nemotron-super-ud-q3_k_xl/tokenizer"
   }
  },
+ "128GB-1x24GB occamy APEX-Balanced": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Balanced/occamy-1.0-APEX-Balanced.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-balanced/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Balanced",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-balanced.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-balanced",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-balanced/tokenizer"
+  }
+ },
+ "128GB-1x24GB occamy APEX-I-Compact": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-I-Compact/occamy-1.0-APEX-I-Compact.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-i-compact/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-I-Compact",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-i-compact.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-i-compact",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-i-compact/tokenizer"
+  }
+ },
+ "128GB-1x24GB occamy APEX-Quality": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
+ "128GB-1x24GB occamy recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
  "32GB-2x24GB gemma4 QAT-UD-Q4_K_XL": {
   "code": 0,
   "config": {
@@ -1301,6 +1433,154 @@
    "tokenizer": "<T>/data/packs/nemotron-super-ud-q3_k_xl/tokenizer"
   }
  },
+ "32GB-2x24GB occamy APEX-Balanced": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Balanced/occamy-1.0-APEX-Balanced.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-balanced/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Balanced",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-balanced.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-balanced",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-balanced/tokenizer"
+  }
+ },
+ "32GB-2x24GB occamy APEX-I-Compact": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-I-Compact/occamy-1.0-APEX-I-Compact.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-i-compact/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-I-Compact",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-i-compact.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-i-compact",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-i-compact/tokenizer"
+  }
+ },
+ "32GB-2x24GB occamy APEX-Quality": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
+ "32GB-2x24GB occamy recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
  "47GB-2x16GB gemma4 QAT-UD-Q4_K_XL": {
   "code": 0,
   "config": {
@@ -1999,6 +2279,154 @@
   "code": 1,
   "config": null
  },
+ "47GB-2x16GB occamy APEX-Balanced": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Balanced/occamy-1.0-APEX-Balanced.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-balanced/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Balanced",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-balanced.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-balanced",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-balanced/tokenizer"
+  }
+ },
+ "47GB-2x16GB occamy APEX-I-Compact": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-I-Compact/occamy-1.0-APEX-I-Compact.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-i-compact/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-I-Compact",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-i-compact.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-i-compact",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-i-compact/tokenizer"
+  }
+ },
+ "47GB-2x16GB occamy APEX-Quality": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
+ "47GB-2x16GB occamy recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": [
+    0,
+    1
+   ],
+   "gpus_asked": true,
+   "layer_split": "auto",
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
  "64GB-1x32GB gemma4 QAT-UD-Q4_K_XL": {
   "code": 0,
   "config": {
@@ -2658,6 +3086,138 @@
    "tokenizer": "<T>/data/packs/nemotron-super-ud-q3_k_xl/tokenizer"
   }
  },
+ "64GB-1x32GB occamy APEX-Balanced": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Balanced/occamy-1.0-APEX-Balanced.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-balanced/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Balanced",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-balanced.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-balanced",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-balanced/tokenizer"
+  }
+ },
+ "64GB-1x32GB occamy APEX-I-Compact": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-I-Compact/occamy-1.0-APEX-I-Compact.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-i-compact/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-I-Compact",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-i-compact.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-i-compact",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-i-compact/tokenizer"
+  }
+ },
+ "64GB-1x32GB occamy APEX-Quality": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
+ "64GB-1x32GB occamy recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
  "96GB-1x16GB gemma4 QAT-UD-Q4_K_XL": {
   "code": 0,
   "config": {
@@ -3231,6 +3791,138 @@
     "top_p": 0.95
    },
    "tokenizer": "<T>/data/packs/nemotron-super-ud-q3_k_xl/tokenizer"
+  }
+ },
+ "96GB-1x16GB occamy APEX-Balanced": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Balanced/occamy-1.0-APEX-Balanced.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-balanced/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Balanced",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-balanced.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-balanced",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-balanced/tokenizer"
+  }
+ },
+ "96GB-1x16GB occamy APEX-I-Compact": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-I-Compact/occamy-1.0-APEX-I-Compact.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-i-compact/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-I-Compact",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-i-compact.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-i-compact",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-i-compact/tokenizer"
+  }
+ },
+ "96GB-1x16GB occamy APEX-Quality": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
+  }
+ },
+ "96GB-1x16GB occamy recommended": {
+  "code": 0,
+  "config": {
+   "args": [
+    "--model",
+    "<T>/models/occamy10-APEX-Quality/occamy-1.0-APEX-Quality.gguf",
+    "--max-context",
+    "32768",
+    "--expert-profile",
+    "<T>/data/packs/occamy10-apex-quality/expert-profile.txt",
+    "--conversation-cache-mib",
+    "auto"
+   ],
+   "cwd": "<T>",
+   "display_name": "Occamy 1.0 35B-A3B APEX-Quality",
+   "exe": "<T>/engine-poly/<strata-poly>",
+   "gpu": 0,
+   "gpus_asked": true,
+   "lib_dirs": [
+    "/cuda/lib64"
+   ],
+   "log": "<T>/strata-occamy10-apex-quality.log",
+   "model_name": "occamy-1.0-35b-a3b-apex-quality",
+   "port": 8080,
+   "sampling": {
+    "presence_penalty": 1.5,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+   },
+   "tokenizer": "<T>/data/packs/occamy10-apex-quality/tokenizer"
   }
  }
 }
