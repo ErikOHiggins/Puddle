@@ -281,15 +281,20 @@ void Laguna::assign_scratch() {
         q8w_ = fbuf((2 * work_halves_ + 1) / 2);
     }
     // The full layers' prompt batches through llama.cpp's flash-attention kernel (fattn.hpp: heads of 128 in groups
-    // of 6, 2 heads a tile), in score_: opt-in with STRATA_FATTN=1 until it is measured; attend_batch() otherwise,
-    // and for the window layers (said once: assign_scratch() runs twice).
+    // of 6, 2 heads a tile), in score_: on unless STRATA_FATTN=0; attend_batch() for the window layers, and where it
+    // does not fit (said once: assign_scratch() runs twice).  On echo (2x RTX 5060 Ti 16 GB) Laguna-S read a
+    // 26,455-token prompt at 868.8 tokens/s with it and 707.5 without, a 95,703-token one at 768.4 and 426.4; its
+    // first choices parted from llama.cpp's at near ties only, and it found 6 of 6 code words in 32K and 96K
+    // prompts either way (tools/needle_bench.py, docs/BACKENDS.md).
     const char* fa = std::getenv("STRATA_FATTN");
-    if (rows_ >= kStageRows && fa && std::atoi(fa) == 1 && full_heads > 0 && !fattn_said_) {
+    if (rows_ >= kStageRows && !(fa && std::atoi(fa) == 0) && full_heads > 0 && !fattn_said_) {
         fattn_said_ = true;
         fattn_ = fattn_fits(head_dim_, full_heads, n_kv_, rows_, score_n_);
-        std::fprintf(stderr, "strata-poly: STRATA_FATTN: the full layers' prompt attention %s\n",
-                     fattn_ ? "through llama.cpp's flash-attention kernel"
-                            : "unchanged (no kernel for it on this card, or --prompt-batch too large for the scratch)");
+        if (fattn_ || (fa && std::atoi(fa) == 1))
+            std::fprintf(stderr, "strata-poly: STRATA_FATTN: the full layers' prompt attention %s\n",
+                         fattn_ ? "through llama.cpp's flash-attention kernel (STRATA_FATTN=0 turns it off)"
+                                : "unchanged (no kernel for it on this card, or --prompt-batch too large for the "
+                                  "scratch)");
     }
 }
 

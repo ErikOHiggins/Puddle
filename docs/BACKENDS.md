@@ -2097,7 +2097,9 @@ section says otherwise.
 ### Flash attention for prompt reading (on by default; `STRATA_FATTN=0` turns it off)
 
 For qwen35moe models (upstream's Qwen3.6 and Ornith; heads of 256 values, 8 or 16 heads a group) and, since
-phase 2, the Nemotrons (heads of 128, 16 heads a group), on an Ampere or later NVIDIA card. A prompt batch's
+phase 2, the Nemotrons (heads of 128, 16 heads a group) and Laguna's full layers (heads of 128, 6 heads a group, which
+the kernel takes 2 at a time, as llama.cpp does; the window layers keep the old path), on an Ampere or later NVIDIA
+card. A prompt batch's
 attention runs through llama.cpp's flash-attention kernel (`src/poly/fattn_mma.cuh`, a copy of
 `fattn-mma-f16.cuh` with the causal mask computed in the kernel) instead of two cuBLAS products and a softmax
 over scores in memory. Under the q8_0 cache (`--kv int8`) blocks of keys are
@@ -2105,7 +2107,7 @@ dequantized to fp16 in the attention's existing score scratch; an fp16 cache is 
 The server logs `STRATA_FATTN: prompt attention through llama.cpp's flash-attention kernel`. Decode, Turing, HIP and
 other models keep the old path, and so does `STRATA_FATTN=0`. It was opt-in (`STRATA_FATTN=1`) until two cards beside
 the one below showed the same gain ([PolyStrata issue 107](https://github.com/simplexai-labs/PolyStrata/issues/107) and the measurement at
-the end of the next section). For the Nemotrons it was opt-in until the measurement on echo below.
+the end of the next section). For the Nemotrons and Laguna it was opt-in until the measurements on echo below.
 
 **Measured** on echo (two RTX 5060 Ti 16 GB, i9-9900K, 128 GB DDR4-3200, Linux), 2026-11-21, through Puddle
 (`python puddle.py benchmark`, greedy, 256 tokens written), with and without it; llama-server (llama.cpp
@@ -2121,6 +2123,24 @@ Writing was the same within 1 token/s. Nemotron 3.5 Super, whose experts are mos
 the same prompts at 110 to 217 tokens/s either way: the differences (up to 7%) followed its expert cache's hit rate,
 not the kernel. With `tools/poly_parity.py` (llama.cpp choosing each token) both models' first choices parted from
 llama.cpp's at near ties only, as without it.
+
+**Laguna-S 2.1, measured** on echo, 2026-11-22, UD-Q3_K_XL through Puddle (setup's config: both cards, a 256K
+context, q8_0 cache), with and without it; llama-server (llama.cpp `08c252e22`, its own fit of the cards, `-c 262144`,
+q8_0 cache, `-fa on`) the same day, the same prompts:
+
+| Laguna-S, prompt read | without | with | llama-server |
+| --- | ---: | ---: | ---: |
+| 2,549 tokens | 286.0 tokens/s | 290.6 | 99.7 |
+| 26,455 tokens | 707.5 | 868.8 | 111.4 |
+| 95,703 tokens | 426.4 | 768.4 | 110.4 |
+
+Writing was the same (25 to 36 tokens/s either way; llama-server 12 to 16). A profile of the 95,655-token read before
+it (`nsys`): the full layers' attention took 108.5 s of the cards' 169.6 s of kernels. One layer of Laguna's shape at
+120,000 positions (`poly_fattn_test dim128 gqa6`): 15.0 ms against 59.5. On a 2,151-token text its first choices
+parted from llama-server's at near ties only, with it (60 of 64 the same) and without (59 of 64); strata-poly's own
+top ten moved more from the old path to the kernel (KL mean 2.05e-2) than from a batch of 1,024 tokens to one of 512
+(1.35e-2), and changed one first choice where the batch's change made two. `tools/needle_bench.py` found the code
+word 6 times of 6 in prompts of 33,736 and 106,574 tokens (depths 10, 50 and 90%) with it and without it.
 
 **Measured** on an RTX 3070 8 GB (PCIe 3.0 x16; Ryzen 5 2600X, 32 GB DDR4-3200; Cyber-Tiel-Coder 35B-A3B
 UD-Q4_K_XL, `--max-context 262144`, q8_0 cache), a coding-agent conversation of growing turns: prompt read 1,437 -> 1,824 tokens/s at 32K of context, 749 -> 1,268 at 103K,
