@@ -111,7 +111,9 @@ class Monitor(unittest.TestCase):
                         self.assertNotIn("response", record)
 
     def test_error_and_engine_death_are_not_successes(self):
+        self.svc.fit_max_tokens = False                 # the 400 of a max_tokens past the context (on by default)
         self.assertEqual(self.chat(max_tokens=20000)[0], 400)
+        self.svc.fit_max_tokens = True
         self.assertEqual(self.latest()["state"], "error")
         for api in ("openai", "anthropic"):
             for stream in (False, True):

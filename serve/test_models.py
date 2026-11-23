@@ -638,6 +638,17 @@ class Start(unittest.TestCase):
                      "[strata] thinking budget: 512 tokens", "[strata] the model unloads after 60.0 s"):
             self.assertIn(line, out)
 
+    def test_fit_max_tokens_is_on_unless_false(self):
+        """On by default (PolyStrata 0.2.19-poly.1): only a config's false or --no-fit-max-tokens turns it off."""
+        for cfg, over, want in (({}, None, True), ({"fit_max_tokens": True}, None, True),
+                                ({"fit_max_tokens": False}, None, False), ({}, {"fit_max_tokens": None}, True),
+                                ({}, {"fit_max_tokens": False}, False), ({"fit_max_tokens": False},
+                                                                       {"fit_max_tokens": True}, True)):
+            with self.subTest(cfg=cfg, over=over):
+                self.assertIs(S.model_settings(cfg, over)["fit_max_tokens"], want)
+        import inspect                                  # a Service made without a config
+        self.assertIs(inspect.signature(S.Service).parameters["fit_max_tokens"].default, True)
+
     def test_the_command_line_wins_and_is_kept_for_a_switch(self):
         out, svc = self.start({"idle_unload_s": 60, "min_free_vram_mib": 5},
                               ["--idle-unload", "5", "--fit-max-tokens", "--min-free-vram-mib", "77",

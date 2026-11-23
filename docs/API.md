@@ -148,7 +148,8 @@ settings ("Use for other apps too") and a request's own level win over it.
   generic OpenAI-compatible provider needs `"capabilities": {"tools": true, "chat_completions": true}` on the model.
 - **Claude Code:** `ANTHROPIC_BASE_URL=http://127.0.0.1:8080`, `ANTHROPIC_MODEL` set to a Claude model name it knows
   (Puddle ignores the name), and any `ANTHROPIC_AUTH_TOKEN` (or your `api_key`). It asks for 32,000 tokens of answer in
-  every request: add `"fit_max_tokens": true` to `strata-<model>.json`, and `"anthropic_thinking": "on_request"`.
+  every request, which the server shortens to the room the context has left (`fit_max_tokens`, on by default); add
+  `"anthropic_thinking": "on_request"` to `strata-<model>.json`.
 - **Codex CLI:** [the Responses API](#the-responses-api-and-codex-cli) below.
 - **OpenCode.** A starting point for `opencode.jsonc` (field names are OpenCode's):
 
@@ -173,15 +174,16 @@ settings ("Use for other apps too") and a request's own level win over it.
   }
   ```
 
-  Set `limit.context` to the context you chose in setup, and keep `limit.output` well under it (or use
-  `fit_max_tokens`).
+  Set `limit.context` to the context you chose in setup, and keep `limit.output` well under it (`fit_max_tokens`,
+  on by default, shortens an answer that would not fit).
 
 ## Context
 
 Chosen in setup. Requests longer than that are refused (400), never silently cut. A request whose `max_tokens` would
-run past the context is refused too, unless:
+run past the context has its `max_tokens` shortened to the room left (`fit_max_tokens`, on by default since
+2026-11-23, as in PolyStrata 0.2.19-poly.1); `"fit_max_tokens": false` (or `--no-fit-max-tokens` to
+`serve/server.py`) refuses it with 400 instead, as llama.cpp does. A prompt that does not fit is refused unless:
 
-- `"fit_max_tokens": true` (or `--fit-max-tokens` to `serve/server.py`): `max_tokens` is shortened to the room left.
 - `"drop_oldest": true`: a conversation's oldest turns are left out when it no longer fits (the system prompt and the
   last turn stay).
 - `"truncate_middle": true`: the middle of an oversized text prompt is trimmed, keeping its beginning and end.

@@ -141,6 +141,8 @@ class MaxTokens(unittest.TestCase):
                 self.assertEqual(ct, want)
 
     def test_explicit_budget_over_the_context_is_rejected(self):
+        self.svc.fit_max_tokens = False                 # "fit_max_tokens": false (on by default)
+        self.addCleanup(setattr, self.svc, "fit_max_tokens", True)
         for api in ("openai", "anthropic"):
             with self.subTest(api=api):
                 s, b, _, _ = self.call(api, max_tokens=CTX)

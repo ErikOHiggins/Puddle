@@ -91,9 +91,10 @@ them.
 ### Can I use it with Claude Code, Codex or other apps?
 
 Yes. It serves OpenAI- and Anthropic-compatible APIs on localhost, with tool calls. Claude Code:
-`ANTHROPIC_BASE_URL=http://127.0.0.1:8080`, and add `"anthropic_thinking": "on_request"` and `"fit_max_tokens": true`
-to `strata-<model>.json`. Codex CLI uses the Responses API at `/v1/responses`. poolside's pool agent needs
-`"keepalive_events": true`. Details: [API.md](API.md#apps-and-agents).
+`ANTHROPIC_BASE_URL=http://127.0.0.1:8080`, and add `"anthropic_thinking": "on_request"` to `strata-<model>.json`
+(`fit_max_tokens`, on by default, shortens its 32,000-token answers to the room left). Codex CLI uses the Responses
+API at `/v1/responses`. poolside's pool agent needs `"keepalive_events": true`. Details:
+[API.md](API.md#apps-and-agents).
 
 ### A long chat stops with "request exceeds the context window". Can it drop old messages instead?
 

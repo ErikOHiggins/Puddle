@@ -23,7 +23,8 @@ EDITABLE = [
     ("sampling.top_k", ("sampling", "1..64"), "Default top_k for requests that send none (1-64)"),
     ("sampling.min_p", ("sampling", "0<=x<=1"), "Default min_p for requests that send none"),
     ("reasoning_budget_tokens", "int>=0", "Cap the thinking of every request at this many tokens (0 or empty: no cap)"),
-    ("fit_max_tokens", "bool", "Shorten a max_tokens that does not fit the context instead of answering 400"),
+    ("fit_max_tokens", "bool", "Shorten a max_tokens that does not fit the context instead of answering 400 "
+                                "(on unless false)"),
     ("drop_oldest", "bool", "Leave out a conversation's oldest turns when it no longer fits the context, instead of "
                             "answering 400 (the system prompt and the last turn stay)"),
     ("truncate_middle", "bool", "Trim the middle of an oversized text prompt, keeping its beginning and ending"),

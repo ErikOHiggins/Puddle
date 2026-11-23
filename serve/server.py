@@ -3544,9 +3544,9 @@ def budget_tokens(value) -> int | None:
 class Service:
     def __init__(self, engine: Engine, tokenizer, template: ChatTemplate, model_name: str = "qwen3.8-flash-next",
                  vision: Vision | None = None, sampling_defaults: dict | None = None,
-                 fit_max_tokens: bool = False):
+                 fit_max_tokens: bool = True):
         self.engine, self.tok, self.template, self.model, self.vision = engine, tokenizer, template, model_name, vision
-        self.fit_max_tokens = fit_max_tokens          # --fit-max-tokens: clamp the output cap instead of 400
+        self.fit_max_tokens = fit_max_tokens          # default: clamp the output cap to the room left; false: 400
         self.drop_oldest = False                      # #17 (opt-in): a conversation too long loses its oldest turns
         self.truncate_middle = False                  # opt-in: keep a prompt's beginning and ending when it will not fit
         self.preserve_thinking = False                # #25 (opt-in): earlier turns keep their thinking in the prompt
@@ -4828,9 +4828,9 @@ class Service:
                 raise ValueError("request exceeds the context window: "
                                  f"prompt ({len(ids)} tokens) + max tokens ({max_new}) exceeds the context "
                                  f"({ctx}); requests are never truncated. Send a smaller "
-                                 f"max_tokens (at most {max(0, room)} here), or add \"fit_max_tokens\": true to the "
-                                 "model's strata-<model>.json to shorten it to the room left (#545)")
-            max_new = max(1, room)          # --fit-max-tokens: a shorter completion beats a 400
+                                 f"max_tokens (at most {max(0, room)} here), or set \"fit_max_tokens\": true (the "
+                                 "default) in the model's strata-<model>.json to shorten it to the room left (#545)")
+            max_new = max(1, room)          # fit_max_tokens (the default): a shorter completion beats a 400
         if images and self.vision is None:
             # the pictures themselves, for the engine to send with the prompt (LlamaServerEngine.generate); written
             # once nothing above refuses the request, deleted as for GENI's file below
@@ -7521,7 +7521,9 @@ def model_settings(cfg: dict, overrides: dict | None = None) -> dict:
         timeout = BEFORE_LOAD_TIMEOUT_S
         print(f"[strata] \"before_load_timeout_s\" in the config is not a number; using {timeout:g} s", flush=True)
     return {
-        "fit_max_tokens": bool(over.get("fit_max_tokens")) or cfg.get("fit_max_tokens") is True,
+        # on unless the command line or the config says false (PolyStrata 0.2.19-poly.1, as in Strata 0.2.17)
+        "fit_max_tokens": over["fit_max_tokens"] if over.get("fit_max_tokens") is not None
+        else cfg.get("fit_max_tokens") is not False,
         "reasoning_close_retry": cfg.get("reasoning_close_retry") is True,   # #1053: opt-in, off by default
         "drop_oldest": cfg.get("drop_oldest") is True,                       # #17: opt-in, off by default
         "truncate_middle": cfg.get("truncate_middle") is True,               # opt-in, off by default
@@ -7773,9 +7775,10 @@ def main() -> int:
     ap.add_argument("--tokenizer", default=str(ROOT / "pack/full/tokenizer"),
                     help="pack tokenizer directory (falls back to a byte tokenizer if absent)")
     ap.add_argument("--open", action="store_true", help="open the local page in the browser once the model is ready")
-    ap.add_argument("--fit-max-tokens", action="store_true",
-                    help="clamp max_tokens to the remaining context instead of rejecting the request "
-                         "(default: reject with 400, like llama.cpp; also \"fit_max_tokens\": true in the config)")
+    ap.add_argument("--fit-max-tokens", action=argparse.BooleanOptionalAction, default=None,
+                    help="clamp max_tokens to the remaining context instead of rejecting the request (the default; "
+                         "--no-fit-max-tokens or \"fit_max_tokens\": false in the config rejects it with 400, "
+                         "like llama.cpp)")
     ap.add_argument("--api-key", default=os.environ.get("STRATA_API_KEY", ""),
                     help="require this key on /v1/* (Authorization: Bearer ... or x-api-key); also $STRATA_API_KEY. "
                          "Several keys: separate them with commas (key1,key2), as llama.cpp does")
@@ -7822,7 +7825,7 @@ def main() -> int:
         ap.error(f"the model's tokenizer is missing ({tpath / 'vocab.json'}); run setup again")
     tok = load_tokenizer(tpath) or ByteTokenizer()
     hub = hub_from_config(cfg, a.mcp_config)            # before the minutes of loading: a bad entry stops here
-    overrides = {"fit_max_tokens": a.fit_max_tokens or None, "idle_unload_s": a.idle_unload,
+    overrides = {"fit_max_tokens": a.fit_max_tokens, "idle_unload_s": a.idle_unload,
                  "min_free_vram_mib": a.min_free_vram_mib, "before_load": a.before_load}
     try:
         settings = model_settings(cfg, overrides)       # #37: the model's own settings, read again at every switch
