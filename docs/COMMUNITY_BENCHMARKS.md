@@ -15,7 +15,7 @@ cards and Macs are all unmeasured, and a first report on any of them is welcome.
 
 ## strata-poly reports from PolyStrata's users
 
-These were posted for PolyStrata, on other models of the same engine (Gemma 4 is the one Puddle offers). They say
+These were posted for PolyStrata, on other models of the same engine (Puddle's setup offers none of them). They say
 what strata-poly does on a kind of card; the numbers are the posters' own, and "not stated" marks what a post leaves
 out. The links go to PolyStrata's issues and pull requests.
 

@@ -1,5 +1,11 @@
 # Nemotron 3.5 Bolt and Super
 
+**Setup no longer offers the Nemotrons (2026-11-23).** They did badly in the owner's tests, so Puddle's setup offers
+Laguna-S, Laguna-XS and Occamy only. The engine code stays (`src/poly/nemotron_h.cpp`, the Mamba-2 kernels,
+`serve/server.py`'s `LlamaServerEngine`), a config installed before keeps running and updating, and this page stays
+as the engine's record: what was built and measured. Its setup steps (`--family nemotron-bolt`, `nemotron-super`,
+`nemotron-bolt-llama`) no longer work; `./update.sh --llama-server` compiles llama-server for the parity tools.
+
 NVIDIA's [Nemotron 3.5 Bolt 74B-A9B 24GB](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF)
 reads text and pictures. It is under the OpenMDW-1.1 license. Setup runs it on Puddle's own engine, strata-poly
 (`src/poly/nemotron_h.cpp`), as it runs Nemotron 3.5 Super ([below](#nemotron-35-super-on-strata-poly)): what was

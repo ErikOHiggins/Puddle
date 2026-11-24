@@ -3,8 +3,8 @@
 strata-poly is CUDA-shaped code that also compiles for AMD cards through the `hip_compat` headers (the CUDA runtime,
 BLAS and virtual-memory calls mapped onto HIP's). Setup compiles it for the card; there is no ready-made AMD engine.
 
-**Status: experimental, and untested with Puddle's models.** Laguna, Occamy and Gemma 4 have not been run on an AMD
-card. What is below was measured by PolyStrata's contributors on other models of the same engine. Reports are welcome
+**Status: experimental, and untested with Puddle's models.** Laguna and Occamy have not been run on an AMD card. What is
+below was measured by PolyStrata's contributors on other models of the same engine. Reports are welcome
 ([COMMUNITY_BENCHMARKS.md](COMMUNITY_BENCHMARKS.md)).
 
 Setup accepts the RX 7900 XT / XTX (gfx1100), RX 7800 XT / 7700 XT (gfx1101), RX 7600 / 7600 XT (gfx1102), RX 9060 XT

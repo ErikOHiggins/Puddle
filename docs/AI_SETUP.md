@@ -1,10 +1,8 @@
 # Installing Puddle for a user (instructions for AI agents)
 
 This page is written for an AI coding assistant (Claude Code, Cursor, Codex, GitHub Copilot, ...) that a user asked to
-set up Puddle on their PC. Puddle runs Laguna-S 2.1, Laguna-XS 2.1, Occamy 1.0, Nemotron 3.5 Bolt, Nemotron 3.5 Super
-or Gemma 4 26B-A4B locally on one or two NVIDIA or AMD graphics cards plus system RAM, on its engine strata-poly
-(Nemotron 3.5 Bolt also on llama.cpp's llama-server, opt-in, which setup compiles too), and serves an OpenAI- and
-Anthropic-compatible API on
+set up Puddle on their PC. Puddle runs Laguna-S 2.1, Laguna-XS 2.1 or Occamy 1.0 locally on one or two NVIDIA or AMD
+graphics cards plus system RAM, on its engine strata-poly, and serves an OpenAI- and Anthropic-compatible API on
 `http://127.0.0.1:8080`. The human-oriented version of everything below is [INSTALL.md](INSTALL.md).
 
 Work through the steps in order. Tell the user what you are doing in plain words; they may not be technical.
@@ -17,7 +15,7 @@ Work through the steps in order. Tell the user what you are doing in plain words
 - Do not change the user's system beyond what setup does (setup installs Python for the user account if needed, the
   build tools it asks for, and everything else inside the Puddle folder and its `Puddle-data` folder). Ask before
   installing drivers.
-- The model download is 11 to 96 GB, by model and size (step 3). Confirm the user is fine with that before you start,
+- The model download is 17 to 96 GB, by model and size (step 3). Confirm the user is fine with that before you start,
   especially on a metered connection.
 - Setup is long-running: it compiles the engine (10-20 minutes the first time) and downloads the model. Run it in the
   background or with a long timeout and poll its output; do not kill it because it is quiet for a while. It is
@@ -45,8 +43,7 @@ To check by hand:
 
 Requirements (details: [INSTALL.md](INSTALL.md#what-you-need)):
 
-- **GPU:** NVIDIA RTX 20 series or newer, 8 GB of VRAM or more (Laguna-S wants 16 GB or two cards; Nemotron 3.5 Bolt
-  wants 30 GB of VRAM together, one 32 GB card or two 16 GB, NVIDIA only). AMD cards are
+- **GPU:** NVIDIA RTX 20 series or newer, 8 GB of VRAM or more (Laguna-S wants 16 GB or two cards). AMD cards are
   experimental ([AMD_HIP.md](AMD_HIP.md)); Pascal / Volta cards (P40, V100) have an experimental CUDA 12 path the user
   opts into ([OLDER_GPUS.md](OLDER_GPUS.md)). Integrated GPUs are not supported.
 - **Driver:** NVIDIA 580 or newer. AMD on Linux: the kernel's amdgpu driver; on Windows: a current AMD Adrenalin
@@ -78,17 +75,11 @@ PC):
 | Laguna-S 2.1 | `laguna-s` | UD-Q3_K_XL 54 GB (default), UD-Q4_K_XL 73 GB, Q4_K_M 96 GB | about 51 / 71 / 93 GB beside a 16 GB card | no |
 | Laguna-XS 2.1 | `laguna-xs` | Q4_K_M 20 GB | about 17 GB beside a 16 GB card | no |
 | Occamy 1.0 | `occamy` | APEX-Quality 23 GB (default), APEX-I-Compact 17 GB, APEX-Balanced 25 GB; 0.9 GB more with pictures | about 18 / 12 / 21 GB beside a 16 GB card | yes (`--vision yes`) |
-| Nemotron 3.5 Bolt | `nemotron-bolt` | 24GB (NVIDIA's own 2-bit file) 22 GB (default), UD-Q4_K_XL 50 GB, UD-Q5_K_XL 59 GB; 1.7 GB more with pictures | 24GB: about 17 GB beside a 16 GB card, every expert on two; UD-Q4_K_XL: about 46 / 35 GB beside one / two; UD-Q5_K_XL: about 54 / 44 GB beside one / two | yes |
-| Nemotron 3.5 Bolt on llama-server (opt-in) | `nemotron-bolt-llama` | the same 24GB file (setup uses the one `nemotron-bolt` downloads) | about 16 GB (not measured); needs 30 GB of VRAM together | yes |
-| Nemotron 3.5 Super | `nemotron-super` | UD-Q3_K_XL 66 GB | about 51 GB beside two 16 GB cards, 62 GB beside one | yes |
-| Gemma 4 26B-A4B | `gemma4` | UD-Q3_K_M 13 GB (default), UD-Q2_K_XL, UD-Q4_K_M, QAT-UD-Q4_K_XL | about 15 to 21 GB beside an 8 GB card | yes |
 
-Ask the user what they want it for. Laguna-S is the largest and the default; Laguna-XS, Occamy and Gemma 4 fit a PC
-with less RAM. Nemotron 3.5 Super is the largest model (120B-A12B) and wants the most RAM; it has run on Linux only.
-Occamy, the Nemotrons and Gemma 4 read pictures (Occamy is the one to pair with Laguna, which reads none); Bolt on
-llama-server (opt-in) needs 30 GB of VRAM on NVIDIA cards together and
-setup refuses it on less ([NEMOTRON.md](NEMOTRON.md)). With `--yes` and no `--model`, setup takes the first size whose RAM
-estimate this PC meets. poolside's Laguna-S Q4_K_M keeps 8 of its expert layers in BF16 on the processor and has not
+Ask the user what they want it for. Laguna-S is the largest and the default; Laguna-XS and Occamy fit a PC with less
+RAM. Occamy reads pictures, which Laguna does not: pair the two when the user needs both. With `--yes` and no
+`--model`, setup takes the first size whose RAM estimate this PC meets. poolside's Laguna-S Q4_K_M keeps 8 of its expert
+layers in BF16 on the processor and has not
 been run yet: take it only when the user asks for it.
 
 ## 4. Run setup without questions
@@ -105,10 +96,10 @@ The flags (all of them: `./setup.sh --help`):
 | Flag | Meaning |
 | --- | --- |
 | `--yes` | take the recommended answer to every question (no prompts) |
-| `--family laguna-s\|laguna-xs\|occamy\|nemotron-bolt\|nemotron-bolt-llama\|nemotron-super\|gemma4` | the model |
+| `--family laguna-s\|laguna-xs\|occamy` | the model |
 | `--model SIZE` | the size (step 3) |
-| `--context N` | context in tokens (default asked; `--yes`: 32768); up to 1048576. Nemotron 3.5 Bolt on llama-server: 168000 on two 16 GB cards, else the largest that fits (llama-server's `--fit`); 4096 to 262144 |
-| `--vision yes\|no\|gpu\|cpu` | read pictures (Occamy, Gemma 4; `--yes` leaves them off) or not (Nemotron 3.5 Bolt; `--yes` turns them on); none on AMD cards |
+| `--context N` | context in tokens (default asked; `--yes`: 32768); up to 1048576 |
+| `--vision yes\|no\|gpu\|cpu` | read pictures (Occamy; `--yes` leaves them off); none on AMD cards |
 | `--gpu N` / `--gpus 0,1` / `--gpus all` | one card, or several sharing the model |
 | `--backend cuda\|hip` | NVIDIA or AMD; chosen by itself on a PC with only one kind of card |
 | `--cuda 12\|13` | the CUDA toolkit the engine is compiled with (12 for Pascal / Volta or a driver older than 580) |
@@ -146,8 +137,7 @@ Notes:
 ## 6. Start the server
 
 Setup prints the start script it wrote (`start script: run-<model>.sh`). The name is the family's tag plus the size,
-lower case: `run-laguna-s21-ud-q3_k_xl`, `run-laguna-xs21-q4_k_m`, `run-occamy10-apex-quality`,
-`run-nemotron-bolt-24gb`, `run-gemma4-ud-q3_k_m`.
+lower case: `run-laguna-s21-ud-q3_k_xl`, `run-laguna-xs21-q4_k_m`, `run-occamy10-apex-quality`.
 
 ```
 Windows (PowerShell):  Start-Process -FilePath ".\run-laguna-xs21-q4_k_m.bat"     (opens its own window)

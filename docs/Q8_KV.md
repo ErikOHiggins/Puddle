@@ -7,7 +7,7 @@ Flint and LFM2.5 they move at about 2-3% of the steps (below).
 
 In this version it is offered for `qwen35moe` (Occamy, and upstream's Tiel and Ornith) and `laguna` (Laguna-S and
 Laguna-XS 2.1) files; another architecture is rejected at load. (PolyStrata also offered it for Kolibri 1, Flint and
-LFM2.5, whose code Puddle removed; their measurements below are PolyStrata's.) Puddle's setup writes `--kv q8_0` for both Lagunas; Occamy and Gemma 4 keep fp16.
+LFM2.5, whose code Puddle removed; their measurements below are PolyStrata's.) Puddle's setup writes `--kv q8_0` for both Lagunas; Occamy keeps fp16.
 
 Laguna-S UD-Q3_K_XL on echo (two RTX 5060 Ti 16 GB): with q8_0, the same first choice as llama.cpp at 95.7% of the
 steps, KL median 1.9e-3, every first difference a near tie; with fp16, code 64 of 64 and the same KL median. Laguna's

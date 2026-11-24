@@ -75,24 +75,21 @@ driver (a Studio one, or an older one) and a lower power limit.
 
 **Pictures are refused, or slow.**
 "this server was started without the vision encoder": the model was set up for text only; run setup again with
-`--vision yes` (Occamy, Gemma 4 and Nemotron 3.5 Bolt). A picture that takes several seconds is read by Gemma 4's
-encoder on the CPU, which setup chooses on a card under 15.5 GB; `--vision gpu` puts it on the card (1.6 GB of VRAM
-for Occamy, 2.4 GB for Gemma 4).
+`--vision yes` (Occamy). A picture that takes several seconds is read by the encoder on the CPU, which setup chooses
+on a card under 15.5 GB; `--vision gpu` puts it on the card (1.6 GB of VRAM).
 
-## Nemotron 3.5 Bolt on llama-server (`nemotron-bolt-llama`)
+## llama-server (a run config made before 2026-11-23)
 
-**Setup says it runs with 30 GB of VRAM or more.**
-The cards you chose have less together. With two cards, choose both (`--gpus 0,1`); with less VRAM, set Bolt up on
-strata-poly (`--family nemotron-bolt`), which keeps the experts that do not fit in RAM.
+Setup no longer installs a model on llama-server (Nemotron 3.5 Bolt's opt-in family left it), but such a config keeps
+running, and `./update.sh --llama-server` compiles llama-server for the parity tools.
 
 **llama-server does not compile.**
 Setup prints the build's output, and the build folder is `build-llama-server/`. Run setup again: it compiles only what
 is missing. The compiler notes above apply to it too (gcc newer than 14: `CXX=g++-14 ./setup.sh`).
 
 **"llama-server exited before it was ready".**
-The message ends with llama-server's last log lines; the whole log is `strata-nemotron-llama-bolt-24gb.log` in the Puddle
-folder. If it ran out of VRAM while loading, close the program that holds VRAM, or run
-`./setup.sh --setup --family nemotron-bolt-llama --context N` with a smaller N.
+The message ends with llama-server's last log lines; the whole log is `strata-<model>.log` in the Puddle folder. If it
+ran out of VRAM while loading, close the program that holds VRAM, or give the config's `--ctx-size` a smaller value.
 
 **"llama-server read N prompt tokens where Puddle planned M".**
 Puddle's count of a picture's tokens differs from llama-server's. The request is still answered (llama-server's count
