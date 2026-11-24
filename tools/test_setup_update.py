@@ -22,8 +22,9 @@ import setup  # noqa: E402
 
 class Update(unittest.TestCase):
     def config(self, d: Path, **extra) -> Path:
-        p = d / "strata-gemma4-ud-q3_k_m.json"
-        p.write_text(json.dumps({"model_name": "Gemma 4 UD-Q3_K_M", "exe": str(d / "engine-poly" / setup.POLY_EXE),
+        p = d / "strata-occamy10-apex-quality.json"
+        p.write_text(json.dumps({"model_name": "Occamy 1.0 35B-A3B APEX-Quality",
+                                 "exe": str(d / "engine-poly" / setup.POLY_EXE),
                                  "args": ["--model", "m.gguf"], **extra}), encoding="utf-8")
         return p
 
@@ -96,7 +97,7 @@ class Update(unittest.TestCase):
         self.assertIn('skipped strata-notes.json (no "exe" or "args"): it is not a Puddle model config', out)
         self.assertIn("skipped strata-cut.json (not valid JSON)", out)
         eng.assert_called_once()                                    # the real model is still refreshed
-        self.assertIn("Gemma 4 UD-Q3_K_M: up to date", out)
+        self.assertIn("Occamy 1.0 35B-A3B APEX-Quality: up to date", out)
         self.assertIn("Puddle is updated", out)
 
     def test_installed_configs_lists_only_model_configs(self):
@@ -204,6 +205,62 @@ class EngineTests(unittest.TestCase):
             setup.main()
         rt.assert_not_called()
         self.assertIn("--tests goes with --update", out.getvalue())
+
+
+class LlamaServerOption(unittest.TestCase):
+    """./update.sh --llama-server: llama-server at the pin for every NVIDIA card, the reference tools/poly_parity.py
+    checks strata-poly against (no family of setup builds it since Bolt's opt-in left)."""
+    CARDS = [{"index": 0, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120", "driver": "580.97"},
+             {"index": 1, "name": "NVIDIA GeForce RTX 4090", "vram_gb": 23.99, "arch": "89", "driver": "580.97"}]
+
+    def update(self, have, cards=CARDS, **a):
+        with mock.patch.object(setup, "gpus", return_value=cards), \
+                mock.patch.object(setup, "build_llama_server", return_value=Path("engine-llama")) as build, \
+                mock.patch.object(setup, "pip_install"), mock.patch.object(setup, "update_poly_engine"), \
+                mock.patch.object(setup, "poly_tail_skip"), mock.patch.object(setup, "poly_kv_whole"), \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = setup.update_install(have, mock.Mock(**{"tests": None, **a}))
+        return rc, build, out.getvalue()
+
+    def test_built_for_every_card_when_asked(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Update.config(self, Path(d))
+            rc, build, _ = self.update([p], llama_server=True, yes=False)
+            self.assertEqual(rc, 0)
+            gpu, yes, toolkit = build.call_args.args
+            self.assertEqual((gpu["archs"], yes, toolkit), ([89, 120], False, 13))
+            p.write_text(json.dumps({**json.loads(p.read_text(encoding="utf-8")), "cuda": 12}), encoding="utf-8")
+            _, build, _ = self.update([p], llama_server=True, yes=True)
+            self.assertEqual(build.call_args.args[1:], (True, 12))      # the installed engine's CUDA 12
+
+    def test_also_with_nothing_installed(self):
+        rc, build, out = self.update([], llama_server=True)
+        self.assertEqual(rc, 0)
+        build.assert_called_once()
+        self.assertIn("No model is installed", out)
+
+    def test_not_built_unless_asked(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Update.config(self, Path(d))
+            for a in ({"llama_server": False}, {}):               # a Mock's own attribute is not True
+                with self.subTest(a=a):
+                    _, build, _ = self.update([p], **a)
+                    build.assert_not_called()
+
+    def test_no_nvidia_card_is_said(self):
+        with self.assertRaises(SystemExit):
+            _, _, out = self.update([], cards=[], llama_server=True)
+
+    def test_without_update_is_refused(self):
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.object(sys, "argv", ["setup.py", "--llama-server"]), \
+                mock.patch.object(setup, "data_folder", return_value=(Path(d), [])), \
+                mock.patch.object(setup, "installed_configs", return_value=[]), \
+                mock.patch.object(setup, "build_llama_server") as build, \
+                contextlib.redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit):
+            setup.main()
+        build.assert_not_called()
+        self.assertIn("--llama-server goes with --update", out.getvalue())
 
 
 class SettingsLine(unittest.TestCase):

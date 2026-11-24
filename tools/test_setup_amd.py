@@ -421,7 +421,7 @@ class PolyHipWindows(unittest.TestCase):
         self.assertEqual(seen, {"gpu": {"arch": "gfx1201"}, "portable": True})
 
     def test_the_check_line_names_amd_on_windows(self):
-        d = setup.FAMILIES["gemma4"]["models"]["UD-Q3_K_M"]
+        d = setup.FAMILIES["occamy"]["models"]["APEX-Quality"]
         with mock.patch.object(setup, "WIN", True):
             line = setup.poly_verdict(d, 63, 15.9, True)
         self.assertIn("measured on one AMD card on Windows", line)

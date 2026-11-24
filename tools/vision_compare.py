@@ -5,7 +5,7 @@ the other, with the config's encoder file (mmproj), model, device and token limi
 the old one (a copy made before an update) and the new one (the config's own, or --new).  Then their records are
 compared: the rows and the grid, and the values (the largest difference, and how many are the same to the bit).
 
-    .venv/bin/python tools/vision_compare.py --old ~/strata-vision-old strata-gemma4-qat-ud-q4_k_xl.json \\
+    .venv/bin/python tools/vision_compare.py --old ~/strata-vision-old strata-occamy10-apex-quality.json \\
         --image third_party/llama.cpp-08c252e/tools/mtmd/test-1.jpeg
 
 The server must not be running when the encoder is on the card.  Exit 0: every picture's rows are the same to the bit;

@@ -198,7 +198,7 @@ class ExperimentalSm60(unittest.TestCase):
 
 class VramReserve(unittest.TestCase):
     """#493: --vram-reserve-mib N - VRAM the engine leaves free for other programs - goes into the config only when
-    given (the default config unchanged), at setup and on a start.  Gemma 4 through tools/poly_setup_harness.py."""
+    given (the default config unchanged), at setup and on a start.  Occamy through tools/poly_setup_harness.py."""
     from tools.poly_setup_harness import PolyMain
     found = [{"index": 0, "name": "NVIDIA GeForce RTX 5090", "vram_gb": 31.8, "arch": "120", "driver": "580.97"}]
 
@@ -209,7 +209,7 @@ class VramReserve(unittest.TestCase):
         self.PolyMain.tearDown(self)
 
     def install(self, *extra):
-        code, out, cfg = self.PolyMain.main(self, list(extra), family="gemma4", model="UD-Q3_K_M", ram=64.0,
+        code, out, cfg = self.PolyMain.main(self, list(extra), family="occamy", model="APEX-Quality", ram=64.0,
                                             cards=self.found)
         return code, out, cfg, None
 
@@ -238,7 +238,7 @@ class VramReserve(unittest.TestCase):
 
     def test_kept_from_an_earlier_install(self):
         with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "strata-gemma4-ud-q3_k_m.json"
+            p = Path(d) / "strata-occamy10-apex-quality.json"
             p.write_text(json.dumps({"args": ["--max-context", "8192", "--vram-reserve-mib", "2048"]}))
             self.assertEqual(setup.choices_from_config(p)["vram_reserve_mib"], 2048)
             p.write_text(json.dumps({"args": ["--vision", "--vram-reserve-mib", "700"], "vision": {"gpu": True}}))

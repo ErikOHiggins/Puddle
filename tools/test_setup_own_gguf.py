@@ -73,8 +73,8 @@ class OwnGguf(unittest.TestCase):
         gguf(self.f, "llama")
         self.assertEqual(quiet(setup.verify_poly_own, self.f, 13_600_000_000, "0" * 64, "qwen35moe-family")[0], "stopped")
         self.assertTrue(self.f.exists())
-        gguf(self.f, "qwen35moe")                  # a Qwen3.6-type file is not a Gemma 4 one
-        self.assertEqual(quiet(setup.verify_poly_own, self.f, 13_600_000_000, "0" * 64, "gemma4")[0], "stopped")
+        gguf(self.f, "qwen35moe")                  # a Qwen3.6-type file is not a Laguna one
+        self.assertEqual(quiet(setup.verify_poly_own, self.f, 13_600_000_000, "0" * 64, "laguna-xs")[0], "stopped")
 
     def test_gate_and_up_of_different_types_are_refused(self):
         # issue 54: Tiel APEX-I-NanoPlus, whose layer 16 stores gate and up differently; the engine refuses it at load

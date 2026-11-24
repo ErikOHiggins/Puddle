@@ -8,9 +8,10 @@ then installs everything and starts the model on http://127.0.0.1:8080 (OpenAI- 
 web app).  Every later start skips straight to running the model: nothing that is already downloaded, installed or
 prepared is done again.
 
-Every model runs on strata-poly, read from its GGUF in place (docs/BACKENDS.md); Nemotron 3.5 Bolt also on llama.cpp's
-llama-server when asked (nemotron-bolt-llama, compiled here as well, NVIDIA cards only for now).  What the first run
-does (each step is skipped when it is already done):
+Every model runs on strata-poly, read from its GGUF in place (docs/BACKENDS.md): Laguna-S 2.1, Laguna-XS 2.1 and
+Occamy 1.0.  llama.cpp's llama-server is compiled here only when asked (./update.sh --llama-server), as the reference
+tools/poly_parity.py checks strata-poly against.  What the first run does (each step is skipped when it is already
+done):
 
   1. checks your PC: NVIDIA or AMD GPU and driver, RAM, CPU, free disk space
   2. asks the questions
@@ -66,11 +67,6 @@ HF_REVISIONS = {
     "poolside/Laguna-XS-2.1-GGUF": "1a37c0a5fb8c7a18e6106decb6be6327d1b63fa6",                     # 2026-07-18
     "Accio-Lab/occamy-1.0-APEX-GGUF": "7c731908b05f5cbd19002b23d421aa102c0dd0de",                  # 2026-10-02
     "Accio-Lab/occamy-1.0-GGUF": "15027de49a5f8bbb5a131ed3fcfc1b54a543089d",                       # 2026-10-19
-    "unsloth/gemma-4-26B-A4B-it-GGUF": "c099eb48e663fd284577b04978a94ffccb261841",                     # 2026-10-05
-    "unsloth/gemma-4-26B-A4B-it-qat-GGUF": "7b92b5b28818151e8669af2e45e88d6086f490dd",                 # 2026-10-26
-    "nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF": "e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246",  # 2026-10-15
-    "unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF": "34841e360524d421c564cc3ed247aa04a865473b",      # 2026-10-16
-    "unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF": "75a5829055f69a0359085ae6bbd0a81b60bc05c6",  # 2026-10-15
 }
 
 
@@ -172,10 +168,10 @@ LLAMA_CPP_ZIP = f"https://github.com/ggml-org/llama.cpp/archive/{LLAMA_CPP_COMMI
 # and the two share one checkout.  Before phase 2 it was 69f201a2 (MiniCPM-V 4.7's).
 VISION_LLAMA_CPP_COMMIT = "08c252e221759e0f69e80f0450b295c92d2344e1"
 VISION_LLAMA_CPP_ZIP = f"https://github.com/ggml-org/llama.cpp/archive/{VISION_LLAMA_CPP_COMMIT}.zip"
-# llama.cpp's llama-server, the engine of a family with "engine": "llama-server" (Nemotron 3.5 Bolt's opt-in; it was
-# Bolt's engine until strata-poly ran the Mamba-2 hybrids): its own newer checkout (nemotron_h_moe, NVFP4, mtmd's
-# nemotron_omni), the commit echo ran Bolt with (2026-11-20), compiled here into engine-llama/ (serve/server.py's
-# LlamaServerEngine talks to it)
+# llama.cpp's llama-server: the reference of tools/poly_parity.py (./update.sh --llama-server compiles it into
+# engine-llama/), and the engine of a run config with "engine": "llama-server" made before 2026-11-23, when
+# Nemotron 3.5 Bolt's opt-in family left setup (serve/server.py's LlamaServerEngine talks to it).  The commit echo
+# ran Bolt with (2026-11-20).
 LLAMA_SERVER_COMMIT = "08c252e221759e0f69e80f0450b295c92d2344e1"
 LLAMA_SERVER_ZIP = f"https://github.com/ggml-org/llama.cpp/archive/{LLAMA_SERVER_COMMIT}.zip"
 LLAMA_SERVER_EXE = "llama-server.exe" if WIN else "llama-server"
@@ -197,8 +193,9 @@ REQUIREMENTS = ROOT / "requirements.txt"   # the same packages and their depende
 # The model families Puddle offers: each runs on strata-poly and has sizes of its own ("models").
 # Each family's sampling: setup writes it as the run config's "sampling" block (a block of the user's stays; a
 # request's own values win).  Laguna: the setting echo's testing settled on (2026-11-18: min_p 0.1; poolside's
-# generation_config has min_p 0.0).  Occamy: echo's live config.  Gemma 4: Google's model card ("Sampling
-# Parameters") and generation_config.
+# generation_config has min_p 0.0).  Occamy: echo's live config.  The Nemotrons and Gemma 4 left setup on
+# 2026-11-23 (the user: Puddle offers poolside's Laguna, and Occamy for its picture reading); their engine code
+# stays (src/poly/nemotron_h.cpp, gemma4.cpp) and a config installed before keeps running and updating.
 LAGUNA_SAMPLING = {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1}
 FAMILIES = {
     # Laguna-S 2.1 (poolside): 48 layers, 12 of them full attention (8 KV heads of 128), 36 sliding (a 512-token
@@ -293,195 +290,6 @@ FAMILIES = {
                           (25335983872, "40f65edbdbb2e79e6af482d390680295c1a2caeea4e68e419eb5cbfe61084922"),
                           "mmproj-occamy-1.0-F16.gguf":
                           (899282944, "8f827a1e495f23e987686a7f55c26064270502a5b6ee954a828f1aec0b2fd400")}},
-    # Nemotron 3.5 Bolt 74B-A9B 24GB (NVIDIA): a Mamba-2 / attention hybrid (nemotron_h_moe, 88 blocks) with 496 routed
-    # experts of which 9 are used, quantized by NVIDIA with quantization-aware training (IQ2_XXS experts, NVFP4 Mamba
-    # layers, Q8_0 embedding and output), and a C-RADIO v4-H image encoder (BF16).  It runs on strata-poly
-    # (src/poly/nemotron_h.cpp): on echo its first choices were llama.cpp's at 198 of 199 steps, and 64 of 64 on a
-    # picture (tools/poly_parity.py, 2026-11-21).  Same day, same requests through Puddle on 2x RTX 5060 Ti 16 GB,
-    # against the llama-server family below: writing 60.4 tokens/s after a 17,613-token prompt (llama-server 56.5)
-    # and 69.5 after a 35-token one (61.1); reading that prompt 1,766.8 tokens/s (llama-server 2,347.6).  arena_gb:
-    # the file's routed experts, 17,052,794,880 bytes.  vram_beside_gb: echo, one RTX 5060 Ti 16 GB (15.93 GiB) at a
-    # 32K context, 7,913 of 13,824 experts in VRAM (8.9 GiB), the estimate's way; on both cards all 13,824 (15.9
-    # GiB), with the image encoder too.  vision_vram_gb: Super's measurement of the same encoder (nemotron_omni, the
-    # same settings).  --no-draft: Bolt has no MTP block.  Sampling: NVIDIA's recipe
-    # as llama.cpp runs it (the card's "Recommended Sampling" temperature 1.0 and top_p 0.95, with llama.cpp's top_k
-    # 40 and min_p 0.05 that its command leaves on).  "vision_default_yes": the pictures question defaults to yes, as
-    # it did on llama-server (reading pictures is what Bolt is used for).  UD-Q5_K_XL: Unsloth's quantization (Q5_K /
-    # Q6_K up and Q6_K / Q8_0 down experts, the other weights at more bits than NVIDIA's file) from Unsloth's
-    # repository, with NVIDIA's image encoder: the one the 24GB size's folder has, or its own download of it.  On echo
-    # (2026-11-22) its first choices were llama.cpp's at 157 of 160 steps, the other three near ties
-    # (tools/poly_parity.py: short, code, chat, a 2,190-token text, a picture).  Its vram_beside_gb: one RTX 5060 Ti 16
-    # GB at 32K, 1,617 of 13,824 experts in VRAM (5.4 GiB); arena_gb: its routed experts, 50,288,885,760 bytes; ram_gb
-    # by setup's estimate.  vram_card_gb: on both cards at 32K it held 4,620 (15.5 GiB), so the two took 16.4 GiB
-    # beside the experts together (Super's second card takes 5.7 too).  UD-Q4_K_XL: the same repository and revision,
-    # its up and down experts each a mix of IQ4_XS, Q4_K, Q5_K and Q6_K by layer (5.16 bits a weight).  On echo
-    # (2026-11-23) its first choices were llama.cpp's at 158 of 160 steps, the other two near ties (the same five
-    # prompts, a 2,289-token text); one card at 32K held 2,248 experts (6.5 GiB): vram_beside_gb 9.4; both cards
-    # 5,886 (16.9 GiB), so its second card took 5.5 GiB, 0.3 less than the family's vram_card_gb (Q5's); arena_gb:
-    # its routed experts, 42,641,195,008 bytes; ram_gb by setup's estimate.
-    "nemotron-bolt": {"title": "Nemotron 3.5 Bolt", "by": "NVIDIA", "engine": "poly",
-                      "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                      "about": "74B-A9B, reads pictures; a 22 GB file, ~17 GB of RAM beside a 16 GB card, every expert "
-                               "on two; two larger sizes too",
-                      "hf": hf("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF"),
-                      "file": "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-{q}.gguf", "shards": 1,
-                      "tag": "nemotron-bolt-", "name": "nemotron-3.5-bolt", "vision": True, "experimental": True,
-                      "metal": False, "ran_on_gb": 16, "row_bytes": 8192,
-                      "mmproj_hf": hf("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF"),
-                      "mmproj": "mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf", "vision_gb": 1.7,
-                      "vision_vram_gb": 2.5, "vision_max_tokens": 0, "vision_default_yes": True,
-                      "vram_card_gb": 5.8, "contexts": [8192, 32768, 65536, 131072, 262144],
-                      "args": ["--no-draft"],
-                      "license": "OpenMDW-1.1 (NVIDIA's): "
-                                 "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF",
-                      "models": {"24GB": {"about": "NVIDIA's own 2-bit file (quantization-aware trained)",
-                                          "download_gb": 22.0, "ram_gb": 17, "arena_gb": 17.1,
-                                          "vram_beside_gb": 7.0},
-                                 "UD-Q4_K_XL": {"about": "Unsloth Dynamic: IQ4_XS / Q4_K / Q5_K / Q6_K experts, "
-                                                         "5.16 bits a weight; most on the CPU beside 16 GB cards",
-                                                "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF"),
-                                                "file": "{q}/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-{q}-0000{i}"
-                                                        "-of-00003.gguf",
-                                                "shards": 3, "download_gb": 50.2, "ram_gb": 46, "arena_gb": 42.6,
-                                                "vram_beside_gb": 9.4},
-                                 "UD-Q5_K_XL": {"about": "Unsloth Dynamic: Q5_K / Q6_K up and Q6_K / Q8_0 down "
-                                                         "experts, 6.08 bits a weight; most on the CPU beside 16 GB "
-                                                         "cards",
-                                                "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF"),
-                                                "file": "{q}/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-{q}-0000{i}"
-                                                        "-of-00003.gguf",
-                                                "shards": 3, "download_gb": 58.9, "ram_gb": 54, "arena_gb": 50.3,
-                                                "vram_beside_gb": 10.5}},
-                      "sha256": {"NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf":
-                                 (22018326528, "91d63363e782c8a3d5f4be42816eba8e0d42dd2530bd07a7d0d2dc440599af75"),
-                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00001-of-00003.gguf":
-                                 (7876160, "d6f33b5e8a49ea57a0a3ae922dfd0b3033a19429993d3215fc4992f4270aa2df"),
-                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00002-of-00003.gguf":
-                                 (49524981280, "93c8485db6f9e9d26085acc368ca3b0993a36aa870e8f8b7748c1fbd174c6276"),
-                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00003-of-00003.gguf":
-                                 (686620928, "f97b7a5443b3f77150a1bf7bac6c00862411ee2f26b7bf57a599fb61dbe867df"),
-                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00001-of-00003.gguf":
-                                 (7876064, "5bb0b06d303ccc6d4d0c8c230d5afd70600bf557059a4ba40c338e9451cd3033"),
-                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00002-of-00003.gguf":
-                                 (49594839136, "f634851a11898c88a6e3a7f162e7dbb6f018def08220e6ada7180a835ca3ec81"),
-                                 "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-00003-of-00003.gguf":
-                                 (9309916864, "a847a83a82152143b09dc66a3e397a372bc2d15cbd633cc0ce74efc566068213"),
-                                 "mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf":
-                                 (1733692736, "0ee891eadc7bf0cae6289b249c74eb1ef420534351f6ef8b64d49f0ca6a926b0")}},
-    # Nemotron 3.5 Bolt on llama.cpp's llama-server, opt-in beside the family above ("engine": "llama-server"; the args
-    # are llama-server's): the same files, kept in that family's folder ("files_of": downloaded once), with a config and
-    # model name of its own, so the two run side by side and a request switches between them by name.  It was Bolt's
-    # only engine before strata-poly ran it.  On echo, 2x RTX 5060 Ti 16 GB, everything on the GPUs with --ctx-size
-    # 168000 and these args: 57.6 tokens/s writing, 1,402 tokens/s reading an 11,331-token prompt with pictures, 95% and
-    # 93% of the two cards' VRAM in use (2026-11-20).  vram_need_gb: what setup asks of the chosen cards together (a 32
-    # GB card, or two 16 GB ones); ram_gb: setup's estimate (the file goes to VRAM; llama-server's prompt cache takes up
-    # to 8 GiB of RAM).  Its tag does not begin with "nemotron-bolt-": a config's family is the one whose tag its name
-    # begins with (choices_from_config()).
-    "nemotron-bolt-llama": {"title": "Nemotron 3.5 Bolt (llama-server)", "by": "NVIDIA", "engine": "llama-server",
-                            "files_of": "nemotron-bolt",
-                            "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                            "about": "74B-A9B, reads pictures; Bolt's file on llama.cpp's llama-server instead of "
-                                     "Puddle's engine: NVIDIA cards with 32 GB of VRAM together",
-                            "tag": "nemotron-llama-bolt-", "name": "nemotron-3.5-bolt-llama", "vision": True,
-                            "experimental": True, "echo_context": 168000,
-                            "models": {"24GB": {"about": "NVIDIA's own 2-bit file (quantization-aware trained)",
-                                                "download_gb": 22.0, "ram_gb": 16, "vram_need_gb": 30}}},
-    # Nemotron 3.5 Super VL 120B-A12B (NVIDIA; quantized by Unsloth): Bolt's architecture (nemotron_h_moe: Mamba-2,
-    # attention and LatentMoE layers) at its full size, 512 experts a layer of which 22 are used, and an MTP block.  It
-    # runs on strata-poly (src/poly/nemotron_h.cpp); on echo its first choices were llama.cpp's at 177 of 177 steps
-    # (tools/poly_parity.py, 2026-11-21).  Its MTP block guesses ahead (NemotronH::draft_step(), llama.cpp's graph_mtp):
-    # through Puddle on echo, 2x RTX 5060 Ti 16 GB, 2026-11-22, Super wrote 22.2 / 20.9 / 23.6 / 21.8 tokens/s after
-    # prompts of 27 / 2,520 / 26,460 / 96,159 tokens with it and 18.3 / 17.5 / 19.5 / 17.3 the same day without
-    # (--no-draft), 85 to 92% of its guesses right, and read those prompts 0.6% slower (the block's rows); greedy, the
-    # CLI wrote the same 256 tokens either way.  arena_gb: the file's routed experts with the block's,
-    # 58,562,445,312 bytes (without them 55.6); there the engine's mapped file took 3.0 GiB more RAM with the block
-    # (/proc RssFile after loading, 48.06 against 45.05 GiB).  row_bytes: the 8 attention layers' rows and the block's.
-    # vram_beside_gb: echo, one RTX 5060 Ti 16 GB (15.93 GiB) at a 32K context with the block, 2,316 of 20,992 experts
-    # in VRAM (6.0 GiB), the estimate's way (Bolt's).  vram_card_gb: what each further card takes beside its share of
-    # the experts, where setup's 2.0 a card is too little: on both cards at 32K 6,170 experts (16.3 GiB), so the two
-    # took 15.6 GiB beside the experts together (each card's engine has its own scratch, reserve and buffers).  With
-    # these the estimate is echo's: 6.5 GB of experts on one card (6.4 measured), 17.5 on two (17.5).  Pictures:
-    # strata-vision (llama.cpp 08c252e22's mtmd, nemotron_omni) at the encoder file's own limits (vision_max_tokens 0:
-    # up to 3,407,872 pixels, as llama-server reads Bolt's).  vision_vram_gb: measured on echo at a 256K context, the
-    # encoder warmed up at its largest picture before the engine started: 6,451 -> 5,735 experts in VRAM (16.6 -> 14.1
-    # GiB).  Its first choices on a picture were llama.cpp's at 63 of 64 steps, the other a near tie (2026-11-21).
-    # vram_beside_gb: from echo's log, 17.1 GiB of experts on 2x RTX 5060 Ti 16 GB at an 8K context, the estimate's way.
-    "nemotron-super": {"title": "Nemotron 3.5 Super", "by": "NVIDIA; quantized by Unsloth",
-                       "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                       "about": "120B-A12B, reads pictures; a 66 GB file, ~62 GB of RAM beside a 16 GB card; runs on 2x "
-                                "RTX 5060 Ti 16 GB on the strata-poly engine",
-                       "hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"),
-                       "file": "{q}/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-{q}-0000{i}-of-00003.gguf", "shards": 3,
-                       "tag": "nemotron-super-", "name": "nemotron-3.5-super", "engine": "poly", "vision": True,
-                       "experimental": True, "metal": False, "ran_on_gb": 16, "row_bytes": 9216,
-                       "mmproj_hf": hf("unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF"), "mmproj": "mmproj-BF16.gguf",
-                       "vision_gb": 1.7, "vision_vram_gb": 2.5, "vision_max_tokens": 0, "vram_card_gb": 5.7,
-                       "contexts": [8192, 32768, 65536, 131072, 262144],
-                       "license": "OpenMDW-1.1 (NVIDIA's): "
-                                  "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
-                       "models": {"UD-Q3_K_XL": {"about": "Unsloth Dynamic: IQ4_XS / IQ3_XXS / IQ2_XS up and IQ4_NL / "
-                                                          "Q2_0 down experts, 4.05 bits a weight",
-                                                 "download_gb": 65.8, "ram_gb": 62, "arena_gb": 58.6,
-                                                 "vram_beside_gb": 9.9}},
-                       "sha256": {"NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00001-of-00003.gguf":
-                                  (7874568, "b2a570b4fc2e2e0ef3657937d6d4689c5d9647125e5fe22e31426789cf4e02fa"),
-                                  "NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00002-of-00003.gguf":
-                                  (49225290592, "94827cf22f98854a68127fd4a18cca136951d1181bba8c21a7d9dcd6d3c68674"),
-                                  "NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q3_K_XL-00003-of-00003.gguf":
-                                  (16528375872, "c2245a2faa51dc1aabcb6b58b7c311bc06ebada10345057e106ac94fcfcef8ce"),
-                                  "mmproj-BF16.gguf":
-                                  (1733695840, "9c09381a5744d0ea9a30048c94922f6f25ee0d63842de9c45779eca4fb5924d9")}},
-    "gemma4": {"title": "Gemma 4 26B-A4B", "by": "Google; quantized by Unsloth",
-               "sampling": {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
-               "about": "on the strata-poly engine too; a 13 GB file, ~18 GB of RAM beside an 8 GB card; a smaller and a "
-                        "larger size too",
-               "hf": hf("unsloth/gemma-4-26B-A4B-it-GGUF"), "file": "gemma-4-26B-A4B-it-{q}.gguf", "shards": 1,
-               "tag": "gemma4-", "name": "gemma-4-26b-a4b", "engine": "poly", "vision": True, "experimental": True,
-               "windows": True, "ran_on_gb": 8,
-               # the context menu's lengths (else POLY_CONTEXTS): its files' own length, gemma4.context_length =
-               # 262144 (both repositories' headers, read 2026-11-21), as one more; not run at that length yet
-               "contexts": [8192, 32768, 65536, 131072, 262144],
-               "row_bytes": 28672, "mmproj_hf": hf("unsloth/gemma-4-26B-A4B-it-GGUF"), "mmproj": "mmproj-F16.gguf",
-               "vision_gb": 1.2, "vision_vram_gb": 2.4, "vision_most": 1024,
-               "models": {"UD-Q3_K_M": {"about": "3-bit experts (Unsloth Dynamic), and Google's draft model for it",
-                                        "download_gb": 13.2, "ram_gb": 18, "arena_gb": 10.3,
-                                        "vram_beside_gb": 5.8,
-                                        "draft_model": "MTP/mtp-gemma-4-26B-A4B-it-Q8_0.gguf"},
-                          "UD-Q2_K_XL": {"about": "2-bit i-quant experts (Unsloth Dynamic): the least RAM; the same "
-                                                  "draft model",
-                                         "download_gb": 11.0, "ram_gb": 15, "arena_gb": 8.7,
-                                         "vram_beside_gb": 4.6,
-                                         "draft_model": "MTP/mtp-gemma-4-26B-A4B-it-Q8_0.gguf"},
-                          "UD-Q4_K_M": {"about": "4- and 5-bit experts (Unsloth Dynamic); the same draft model",
-                                        "download_gb": 17.4, "ram_gb": 21, "arena_gb": 14.3,
-                                        "vram_beside_gb": 5.3,
-                                        "draft_model": "MTP/mtp-gemma-4-26B-A4B-it-Q8_0.gguf"},
-                          # Google's quantization-aware trained checkpoint, quantized by Unsloth; its own repository,
-                          # with a draft model and an image encoder of the same names as the others but not the same
-                          "QAT-UD-Q4_K_XL": {"about": "Google's QAT weights, 4-bit (Unsloth Dynamic), with their own "
-                                                      "draft model",
-                                             "hf": hf("unsloth/gemma-4-26B-A4B-it-qat-GGUF"),
-                                             "file": "gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf",
-                                             "mmproj_hf": hf("unsloth/gemma-4-26B-A4B-it-qat-GGUF"),
-                                             "download_gb": 14.7, "ram_gb": 19, "arena_gb": 12.8,
-                                             "vram_beside_gb": 4.1,
-                                             "draft_model": "MTP/mtp-gemma-4-26B-A4B-it-Q8_0.gguf",
-                                             "sha256": {"mtp-gemma-4-26B-A4B-it-Q8_0.gguf":
-                                                        (461785600, "75f58e20c32281d1adc086c0569d53f147e8d81a7b8493cf4a73a028415f67af"),
-                                                        "mmproj-F16.gguf":
-                                                        (1193058784, "d00f211a7d4f7fb19bd9b75d8e9342eccffb5920b08fd9562167560fdfcc5dd1")}}},
-               "sha256": {"gemma-4-26B-A4B-it-UD-Q3_K_M.gguf":
-                          (12728497888, "811882f6df81c8ea204a5d382f196d6bd601245091786912d4c70df41cdfa052"),
-                          "gemma-4-26B-A4B-it-UD-Q2_K_XL.gguf":
-                          (10546934240, "2a1d26dfe6ea00a467940a5728316af6edb366bbdba950d65b85d232392fb658"),
-                          "gemma-4-26B-A4B-it-UD-Q4_K_M.gguf":
-                          (16947541728, "f2c28b3dc4776931ac6f879e11f203dec637ea0f14267a86ec8f6165f63f293f"),
-                          "gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf":
-                          (14249047104, "a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891"),
-                          "mtp-gemma-4-26B-A4B-it-Q8_0.gguf":
-                          (461766816, "6326fb9f5e487aa8dcdd313a091e3c67724cb2a666ec3b7d2895b5b26d93ed1b"),
-                          "mmproj-F16.gguf":
-                          (1193058784, "418a6d8723067cd712235facbbc5cba6c8fbbd413fc1292d2aace5a027d5a42f")}},
 }
 # A family on another family's files ("files_of"): the same downloads at the same revision, checked against the same
 # SHA-256, and kept in that family's folder (files_tag()), so they are downloaded once for both.  A size of its own
@@ -1584,8 +1392,7 @@ def verify_sha256(s: Path, size: int, sha: str, own: bool = False) -> None:
 
 # general.architecture of each strata-poly family's GGUFs, the name Engine::open() (src/poly/engine.cpp) picks its
 # code by; a family not listed is qwen35moe's
-POLY_GGUF_ARCHS = {"laguna-s": ("laguna",), "laguna-xs": ("laguna",), "occamy": ("qwen35moe",),
-                   "nemotron-bolt": ("nemotron_h_moe",), "nemotron-super": ("nemotron_h_moe",), "gemma4": ("gemma4",)}
+POLY_GGUF_ARCHS = {"laguna-s": ("laguna",), "laguna-xs": ("laguna",), "occamy": ("qwen35moe",)}
 
 
 def gguf_arch(s: Path) -> str:
@@ -3184,6 +2991,8 @@ def update_install(have: list, a) -> int:
     its source changed, and each installed model's config upgrades.  No question is asked and the model files are not
     touched."""
     have = [p for p in have if model_config(p)]        # #549: a strata-*.json that is no model config is skipped
+    if getattr(a, "llama_server", False) is True:     # --llama-server: the parity tools' reference
+        parity_llama_server(have, a)
     if not have:
         say("  No model is installed in this Puddle folder yet: run START-HERE.bat (Linux: ./setup.sh) to set it up -")
         say("  it finds an earlier install's model files next to it and reuses them.")
@@ -3216,6 +3025,18 @@ def update_install(have: list, a) -> int:
     ok("Puddle is updated" + (f" (engine {'.'.join(map(str, ver))})" if any(ver) else "") +
        ". Start the model with " + ("START-HERE.bat" if WIN else "./setup.sh") + " when you want it.")
     return 0
+
+
+def parity_llama_server(have: list, a) -> Path:
+    """`./update.sh --llama-server`: llama-server at LLAMA_SERVER_COMMIT in engine-llama/, for every NVIDIA card of
+    this PC, as tools/poly_parity.py runs it.  No family of setup runs on it since the Nemotrons left (2026-11-23),
+    so nothing else builds it; with CUDA 12 when the installed model's engine is built with it."""
+    found = gpus()
+    if not found:
+        fail("--llama-server: no NVIDIA GPU answered", "llama-server is compiled here for NVIDIA cards only")
+    toolkit = 12 if have and config_toolkit(json.loads(have[0].read_text(encoding="utf-8-sig"))) == 12 else 13
+    gpu = {**gpu_info(), "archs": sorted({int(g["arch"]) for g in found})}
+    return build_llama_server(gpu, bool(getattr(a, "yes", False) is True), toolkit)
 
 
 def settings_summary(cfg: dict, port=None) -> str:
@@ -3841,8 +3662,9 @@ def poly_kv_whole(cfg: dict, cfg_path: Path | None = None) -> None:
 
 
 # ------------------------------------------------------------------------------------------------ llama-server
-# A family with "engine": "llama-server" (nemotron-bolt-llama) runs on llama.cpp's llama-server at LLAMA_SERVER_COMMIT,
-# compiled here like strata-poly (always from source) into engine-llama/.  Its run config has "engine": "llama-server"
+# A run config with "engine": "llama-server" (Bolt's opt-in family made them until 2026-11-23; none is made now) runs
+# on llama.cpp's llama-server at LLAMA_SERVER_COMMIT, compiled here like strata-poly (always from source) into
+# engine-llama/, and ./update.sh compiles it again when that commit moves.  It has "engine": "llama-server"
 # and llama-server's own arguments; the server runs it on 127.0.0.1 with a port and a key of its own
 # (serve/server.py's LlamaServerEngine).  NVIDIA cards only for now: it has been run on CUDA only.
 def llama_config(cfg: dict) -> bool:
@@ -3914,168 +3736,6 @@ def update_llama_server(cfg: dict, yes=False, cfg_path: Path | None = None) -> N
     if cfg_path is not None and (cfg.get("lib_dirs") != dirs or Path(cfg["exe"]).parent != built):
         cfg["lib_dirs"], cfg["exe"] = dirs, str(built / LLAMA_SERVER_EXE)
         write_config(cfg_path, cfg)
-
-
-def llama_server_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, adopted) -> int:
-    """Steps 2 to 7 for a model of llama-server (Nemotron 3.5 Bolt on llama-server): the choices (cards, context,
-    pictures), the Python packages, llama-server (compiled here), the model file and its image encoder, its
-    tokenizer, the run config and the start script."""
-    fam = FAMILIES[family]
-    title = fam["title"]
-    if hip:
-        fail(f"{title} runs on NVIDIA cards for now: llama-server is compiled here with CUDA only, and it has not been "
-             "run on an AMD card", "use an NVIDIA card (--backend cuda)")
-    if WIN:
-        warn(f"{title} on Windows: llama-server is compiled here with MSVC and CUDA as strata-poly is; NVIDIA lists "
-             "Windows as supported, but it has not been run there by anyone here (untested)")
-    unused = [flag for flag, given in (
-        ("--vision-tokens", a.vision_tokens is not None), ("--layer-split", bool(a.layer_split)),
-        ("--vram-reserve-mib", a.vram_reserve_mib is not None), ("--parallel", a.parallel is not None),
-        ("--replicas", a.replicas is not None), ("--max-compatibility", bool(a.max_compatibility))) if given]
-    if unused:
-        warn(f"not used with {title} (llama-server has no such setting here): " + ", ".join(unused))
-    sizes = family_models(family)
-    model = a.model or next(iter(sizes))
-    if model not in sizes:
-        fail(f"{title} has no {model} model file", "choose one of: " + ", ".join(sizes))
-    d = sizes[model]
-    sel = multi or [gpu["index"]]
-    cards = {g["index"]: g for g in gpus()}
-    vram = sum(cards[i]["vram_gb"] for i in sel if i in cards) or gpu["vram_gb"]
-    need = d["vram_need_gb"]
-    if vram < need:
-        fail(f"{title} runs with {need} GB of VRAM or more on the chosen cards together (a 32 GB card, or two 16 GB "
-             f"ones); {' + '.join(gpu_name(cards[i]) for i in sel if i in cards) or gpu_name(gpu)} have "
-             f"{vram:.0f} GB", "choose more cards with --gpus, or another model")
-    ok(f"size: {model} ({d['about']}), on {vram:.0f} GB of VRAM" + (f" across GPUs {sel}" if multi else ""))
-    tag = fam["tag"] + model
-
-    # the context: echo's measured one on two 16 GB cards; elsewhere llama-server's --fit takes the largest that fits
-    echo_cards = len(sel) == 2 and all(i in cards and round(cards[i]["vram_gb"]) == 16 for i in sel)
-    if a.context:
-        ctx = a.context
-        if not 4096 <= ctx <= 262144:
-            fail(f"--context {ctx}: {title} takes 4096 to 262144 tokens")
-        ok(f"context: {ctx} tokens (--context)")
-    elif echo_cards:
-        ctx = fam["echo_context"]
-        ok(f"context: {ctx} tokens (as it runs on 2x RTX 5060 Ti 16 GB, where 95% and 93% of the two cards' VRAM is "
-           "then in use)")
-    else:
-        ctx = None
-        ok("context: the largest that fits these cards, chosen by llama-server each time it loads (its --fit); "
-           "--context N sets one")
-
-    # pictures: the encoder (1.7 GB, BF16) sits on the GPUs beside the model, as on echo
-    if a.vision:
-        vision = a.vision not in ("no", "none")
-    else:
-        say()
-        say(f"  Images: {title} can read pictures (screenshots, photos, scanned pages). This adds a "
-            f"{fam['vision_gb']} GB download, and its image encoder takes VRAM beside the model (as on echo).")
-        vision = ask("Do you want images?", ["y", "n"], "y", a.yes) == "y"
-    ok("images: " + ("on" if vision else "off"))
-
-    ftag = files_tag(fam, tag, model)                  # Bolt's files: the strata-poly family's folder
-    models_dir = Path(a.gguf_dir) if a.gguf_dir else Path(a.models_dir) / ftag
-    gguf = models_dir / model_file(fam, model, 1)
-    mmproj = models_dir / fam["mmproj"] if vision else None
-    if a.gguf_dir:
-        for f in (gguf, mmproj):
-            if f is not None and not f.exists():
-                fail(f"{models_dir} has no {f.name}",
-                     "put the file there under that name, or leave out --gguf-dir and setup downloads it")
-    elif not (gguf.exists() and done(gguf)):
-        for r in elsewhere:                            # already downloaded in a Puddle folder on another drive
-            cand = r / "models" / ftag / gguf.name
-            if cand.exists() and done(cand):
-                models_dir, gguf = cand.parent, cand
-                mmproj = models_dir / fam["mmproj"] if vision else None
-                ok(f"model file found in {models_dir}")
-                break
-    have_model = gguf.exists() and (done(gguf) or bool(a.gguf_dir))
-    have_mmproj = mmproj is None or mmproj.exists() and (done(mmproj) or bool(a.gguf_dir))
-    need_gb = (0 if have_model else d["download_gb"]) + (0 if have_mmproj else fam["vision_gb"]) + 2
-    if free_gb(models_dir) < need_gb:
-        fail(f"not enough free disk space in {models_dir}: need ~{need_gb:.0f} GB",
-             "use --models-dir on a bigger drive")
-
-    step(3, "Python packages")
-    pip_install(requirement_lines() if REQUIREMENTS.exists() else PY_PACKAGES,
-                "numpy, jinja2, regex, pyyaml, tqdm, requests, cmake, ninja, pillow, psutil")
-
-    step(4, "llama-server")
-    eng = build_llama_server({**gpu, "archs": sorted({int(cards[i]["arch"]) for i in sel if i in cards}
-                                                     or {int(gpu["arch"])})}, a.yes, cuda_tk)
-    lib_dirs = engine_lib_dirs(eng)
-    ok(f"engine: {eng / LLAMA_SERVER_EXE}")
-
-    step(5, f"downloading {title} {model}")
-    if not have_model:
-        say(f"  The model file goes in {models_dir}")
-        say(f"  A file you already have: put it there with its original name ({gguf.name}), or use --gguf-dir "
-            "<its folder>.")
-        download(d.get("hf", fam["hf"]) + gguf.name, gguf)
-    check_shards([gguf])
-    verify_sha256(gguf, *fam["sha256"][gguf.name], own=bool(a.gguf_dir))
-    if mmproj is not None:
-        if not have_mmproj:
-            download(fam["mmproj_hf"] + fam["mmproj"], mmproj, "image encoder")
-        verify_sha256(mmproj, *fam["sha256"][mmproj.name], own=bool(a.gguf_dir))
-        ok(f"image encoder: {mmproj}")
-    ok("model file present")
-
-    step(6, "preparing the model for Puddle")
-    pack = find_in([data, *elsewhere], f"packs/{tag.lower()}") or data / "packs" / tag.lower()
-    if not (pack / "tokenizer" / "vocab.json").exists():
-        run([sys.executable, str(ROOT / "tools" / "strata_tokenizer.py"), "--gguf", str(gguf), "--out", str(pack)])
-    ok(f"model prepared: {pack} (its tokenizer and chat template)")
-
-    step(7, "writing the start script")
-    # echo's command (2026-11-20), in llama-server's long spellings: one slot, flash attention, a q8_0 KV cache,
-    # 2,048-token batches, the file read in whole (--load-mode none), every layer on the GPUs, split evenly
-    args = ["--model", str(gguf)] + (["--mmproj", str(mmproj)] if mmproj is not None else []) + \
-        (["--ctx-size", str(ctx)] if ctx else []) + \
-        ["--parallel", "1", "--flash-attn", "on", "--cache-type-k", "q8_0", "--cache-type-v", "q8_0",
-         "--batch-size", "2048", "--ubatch-size", "2048", "--load-mode", "none", "--n-gpu-layers", "all"]
-    if multi:
-        args += ["--tensor-split", ",".join("1" for _ in multi)]
-    cfg_path = ROOT / f"strata-{tag.lower()}.json"
-    cfg = {"engine": "llama-server", "exe": str(eng / LLAMA_SERVER_EXE), "args": args, "cwd": str(ROOT),
-           "tokenizer": str(pack / "tokenizer"), "model_name": f"{fam['name']}-{model.lower()}",
-           "display_name": f"{title} {model}", "log": str(ROOT / f"strata-{tag.lower()}.log"), "lib_dirs": lib_dirs,
-           "port": port}
-    if multi:                                          # the server shows these cards, in this order, to llama-server
-        cfg["gpu"], cfg["gpus_asked"] = multi, True
-        ok(f"split evenly across GPUs {multi} (--tensor-split)")
-    elif gpu["count"] > 1 or a.gpu is not None:
-        cfg["gpu"], cfg["gpus_asked"] = gpu["index"], True
-    if cuda_tk == 12:
-        cfg["cuda"] = 12
-    if a.host:
-        cfg["host"] = a.host
-    if a.api_key:
-        cfg["api_key"] = a.api_key
-    if a.browser is not None:
-        cfg["open_browser"] = a.browser
-    earlier = adopted if adopted is not None and adopted.name == cfg_path.name else None
-    write_setup_config(cfg_path, cfg, earlier, sampling=fam.get("sampling"))
-    script = write_run_script(tag, cfg_path, port, cfg.get("open_browser") is not False)
-    ok(f"start script: {script.name}")
-
-    say()
-    say("All set.")
-    say(f"  API (OpenAI):     http://127.0.0.1:{port}/v1   (any API key; model name: anything)")
-    say(f"  API (Anthropic):  http://127.0.0.1:{port}/v1/messages")
-    if vision:
-        say("  Images:           send them in the chat page, in chat.py (/image <path>) or over the API")
-    if a.host and a.host not in ("127.0.0.1", "localhost"):
-        say(f"  Other devices:    the server window prints this PC's address (http://<IP>:{port}/)"
-            + ("" if a.api_key else " - no API key set: anyone on your network can use it"))
-    say(f"  Next time:        just run {'START-HERE.bat' if WIN else './setup.sh'} (or {script.name}) - it starts right away")
-    if a.no_start:
-        return 0
-    return start(cfg_path, port)
 
 
 def poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, adopted) -> int:
@@ -4556,7 +4216,7 @@ def main() -> int:
         return mac_setup(sys.argv[1:])
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--family", choices=list(FAMILIES),
-                    help="gemma4 = Gemma 4 26B-A4B (docs/BACKENDS.md)")
+                    help="laguna-s, laguna-xs = Laguna S / XS 2.1, occamy = Occamy 1.0 35B-A3B (docs/BACKENDS.md)")
     ap.add_argument("--model", choices=list(dict.fromkeys(m for f in FAMILIES.values() for m in f["models"])))
     ap.add_argument("--context", type=int)
     ap.add_argument("--vision", choices=["yes", "no", "none", "gpu", "cpu"],
@@ -4600,6 +4260,10 @@ def main() -> int:
                     help="with --update (./update.sh --tests): also compile strata-poly with its own tests in "
                          f"{POLY_TESTS_DIR}/ and run them (ctest); REGEX: only the tests whose names match. The "
                          "installed engine is not touched")
+    ap.add_argument("--llama-server", action="store_true",
+                    help="with --update (./update.sh --llama-server): also compile llama.cpp's llama-server at "
+                         f"{LLAMA_SERVER_COMMIT[:9]} into {ENGINE_LLAMA_DIR}/ for this PC's NVIDIA cards, the "
+                         "reference tools/poly_parity.py checks strata-poly against")
     ap.add_argument("--max-compatibility", action="store_true",
                     help="on Windows: compile the engine for other PCs too (STRATA_PORTABLE: AVX2 baseline, static "
                          "MSVC runtime); the default build uses this PC's own CPU instructions")
@@ -4666,7 +4330,7 @@ def main() -> int:
             a.gpu = int(a.gpu)
         else:
             ap.error(f"--gpu takes a GPU number as nvidia-smi numbers them, e.g. --gpu 1 (or --gpus 0,2), not {a.gpu!r}")
-    say("Puddle - Laguna, Occamy, Nemotron 3.5 Bolt and Gemma 4 on a normal PC (a GPU + system RAM + CPU)")
+    say("Puddle - Laguna and Occamy on a normal PC (a GPU + system RAM + CPU)")
     data, elsewhere = data_folder(a.data_dir)          # the model files: in the data folder, found from any copy
     roots = [data, *elsewhere]
     if a.models_dir is None:
@@ -4676,6 +4340,8 @@ def main() -> int:
     have = installed_configs()
     if a.tests is not None and not a.update:
         fail("--tests goes with --update", "run ./update.sh --tests (UPDATE.bat --tests)")
+    if a.llama_server and not a.update:
+        fail("--llama-server goes with --update", "run ./update.sh --llama-server (UPDATE.bat --llama-server)")
     if a.update:                                       # #475: UPDATE.bat / update.sh - never starts the model
         return update_install(have, a)
     explicit = a.setup or a.model or a.family or a.check or a.no_start
@@ -4889,8 +4555,6 @@ def main() -> int:
     ok(f"model: {fam['title']}")
     if fam.get("license"):
         say(f"  Its license: {fam['license']}")
-    if fam.get("engine") == "llama-server":
-        return llama_server_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, adopted)
     return poly_setup(a, family, gpu, hip, cuda_tk, multi, ram, data, elsewhere, port, adopted)
 
 

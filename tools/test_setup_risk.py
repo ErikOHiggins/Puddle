@@ -1,7 +1,7 @@
 """Tests for the owner's rule in setup.py - it recommends, it never forces: a choice bigger than the recommendation is
 kept and its risk said (#406's 256K on 64 GB, #364/#384's two GPUs in the low-RAM mode, #403's RAM budget), and the
 stops that stay are the ones a user can confirm (confirm_risk: --yes with an explicit flag, or y).  The defaults are
-tools/test_setup_golden.py's (Gemma 4).  Mocked - no GPU, no downloads, nothing written outside a temp folder.
+tools/test_setup_golden.py's (Occamy).  Mocked - no GPU, no downloads, nothing written outside a temp folder.
 
     python -m unittest tools.test_setup_risk
 """
@@ -93,20 +93,21 @@ class BrokenEarlierConfig(unittest.TestCase):
     def test_an_empty_config_is_skipped(self):
         for text, why in (("", "the file is empty"), ("{\"args\": [", "not valid JSON"), ("[1]", "not a JSON object")):
             with self.subTest(text=text):
-                code, out, cfg, _ = self.setup_with([("strata-gemma4-ud-q3_k_m.json", text)])
+                code, out, cfg, _ = self.setup_with([("strata-occamy10-apex-quality.json", text)])
                 self.assertEqual(code, 0, out)
                 self.assertIn("skipped the earlier config ", out)
-                self.assertIn(f"strata-gemma4-ud-q3_k_m.json ({why}): setting this copy up without it", out)
+                self.assertIn(f"strata-occamy10-apex-quality.json ({why}): setting this copy up without it", out)
                 self.assertNotIn("Found your earlier install", out)
                 self.assertIsNotNone(cfg)                                # the fresh install's config
 
     def test_the_newest_readable_config_is_used(self):
         good = json.dumps({"args": ["--max-context", "65536"], "port": 8080})
-        code, out, cfg, _ = self.setup_with([("strata-gemma4-ud-q3_k_m.json", good), ("strata-gemma4-ud-q2_k_xl.json", "")])
+        code, out, cfg, _ = self.setup_with([("strata-occamy10-apex-quality.json", good),
+                                             ("strata-occamy10-apex-i-compact.json", "")])
         self.assertEqual(code, 0, out)
-        self.assertIn("strata-gemma4-ud-q2_k_xl.json (the file is empty)", out)
+        self.assertIn("strata-occamy10-apex-i-compact.json (the file is empty)", out)
         self.assertIn("Found your earlier install", out)
-        self.assertIn("(gemma4-ud-q3_k_m)", out)
+        self.assertIn("(occamy10-apex-quality)", out)
         self.assertEqual(arg(cfg, "--max-context"), "65536")
 
     def test_write_config_leaves_no_partial_file(self):
@@ -130,7 +131,7 @@ class StartOnSeveralGpus(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             exe = Path(d) / setup.POLY_EXE
             exe.write_bytes(b"")
-            p = Path(d) / "strata-gemma4-ud-q3_k_m.json"
+            p = Path(d) / "strata-occamy10-apex-quality.json"
             p.write_text(json.dumps({"exe": str(exe), "args": ["--max-context", "32768"], "gpu": 0, "gpus_asked": True}))
             call = mock.Mock(return_value=0)
             with mock.patch.object(setup, "gpus", lambda: found), \
@@ -152,7 +153,7 @@ class SmallCard(unittest.TestCase):
     FOUND = [card(0, "NVIDIA GeForce RTX 3090", 24.0, "86"), card(1, "NVIDIA GeForce RTX 2060", 6.0, "75")]
 
     def test_named_with_yes(self):
-        code, out, cfg, _ = install(63.7, self.FOUND, ["--family", "gemma4", "--model", "UD-Q3_K_M", "--no-start",
+        code, out, cfg, _ = install(63.7, self.FOUND, ["--family", "occamy", "--model", "APEX-Quality", "--no-start",
                                                        "--gpus", "0,1"])
         self.assertEqual(code, 0, out)
         self.assertEqual(cfg["gpu"], [0, 1])
@@ -160,13 +161,13 @@ class SmallCard(unittest.TestCase):
         self.assertIn("is used together with the others, as you chose", out)
 
     def test_named_and_enter_stops(self):
-        code, out, cfg, asked = install(63.7, self.FOUND, ["--family", "gemma4", "--model", "UD-Q3_K_M", "--no-start",
-                                                           "--gpus", "0,1"], answers="")
+        code, out, cfg, asked = install(63.7, self.FOUND, ["--family", "occamy", "--model", "APEX-Quality",
+                                                           "--no-start", "--gpus", "0,1"], answers="")
         self.assertEqual(code, 1)
         self.assertTrue(any("Use it anyway?" in q for q in asked), asked)
 
     def test_not_named_is_not_offered(self):
-        code, out, cfg, _ = install(63.7, self.FOUND, ["--family", "gemma4", "--model", "UD-Q3_K_M", "--no-start"])
+        code, out, cfg, _ = install(63.7, self.FOUND, ["--family", "occamy", "--model", "APEX-Quality", "--no-start"])
         self.assertEqual(code, 0, out)
         self.assertEqual(cfg["gpu"], 0)                                   # one card: as before
 
@@ -177,14 +178,14 @@ class SmallSecondCard(unittest.TestCase):
     FOUND = [card(0, "NVIDIA RTX PRO 4500 Blackwell", 31.8, "120"), card(1, "NVIDIA GeForce RTX 3080", 10.0, "86")]
 
     def test_yes_takes_the_pair(self):
-        code, out, cfg, _ = install(127.8, self.FOUND, ["--family", "gemma4", "--model", "UD-Q3_K_M", "--no-start"])
+        code, out, cfg, _ = install(127.8, self.FOUND, ["--family", "occamy", "--model", "APEX-Quality", "--no-start"])
         self.assertEqual(code, 0, out)
         self.assertEqual(cfg["gpu"], [0, 1])
         self.assertNotIn("too small to lend a split", out)
         self.assertNotIn("20%", out)                                     # the Qwen engine's prompt figure is gone too
 
     def test_named_first_card(self):
-        code, out, cfg, _ = install(127.8, self.FOUND, ["--family", "gemma4", "--model", "UD-Q3_K_M", "--no-start",
+        code, out, cfg, _ = install(127.8, self.FOUND, ["--family", "occamy", "--model", "APEX-Quality", "--no-start",
                                                         "--gpu", "0"])
         self.assertEqual(code, 0, out)
         self.assertEqual(cfg["gpu"], 0)

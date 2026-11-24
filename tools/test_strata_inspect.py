@@ -37,15 +37,15 @@ class Verdict(unittest.TestCase):
             self.assertIn(f"--family {fam} --model {model}", sentence)
 
     def test_same_layout_other_file(self):
-        fp = self.fp("gemma4/UD-Q3_K_M")
+        fp = self.fp("occamy/APEX-Quality")
         fp["bytes"] += 1000                          # another file, the experts stored the same
         kind, sentence = SI.verdict(fp, self.table)
         self.assertEqual(kind, "layout")
-        self.assertIn("gemma4/UD-Q3_K_M", sentence)
+        self.assertIn("occamy/APEX-Quality", sentence)
 
     def test_another_file_of_a_family_s_architecture(self):
         for key, title in (("laguna-s/UD-Q3_K_XL", "Laguna S 2.1"), ("laguna-xs/Q4_K_M", "Laguna XS 2.1"),
-                           ("occamy/APEX-Quality", "Occamy 1.0 35B-A3B"), ("gemma4/UD-Q3_K_M", "Gemma 4 26B-A4B")):
+                           ("occamy/APEX-Quality", "Occamy 1.0 35B-A3B")):
             with self.subTest(key=key):
                 fp = self.fp(key)
                 fp["expert_bytes"] = {"Q5_K": 1}       # experts stored as in no file setup offers
@@ -62,9 +62,10 @@ class Verdict(unittest.TestCase):
         self.assertIn("64 layers", sentence)
 
     def test_other_architecture(self):
-        for arch in ("qwen4exp", "glm5-next", "deepseek4", "qwen3moe"):
+        # gemma4 and nemotron_h_moe: the engine runs them, but their families left setup (2026-11-23)
+        for arch in ("qwen4exp", "glm5-next", "deepseek4", "qwen3moe", "gemma4", "nemotron_h_moe"):
             with self.subTest(arch=arch):
-                fp = self.fp("gemma4/UD-Q3_K_M")
+                fp = self.fp("occamy/APEX-Quality")
                 fp["arch"] = arch
                 kind, sentence = SI.verdict(fp, self.table)
                 self.assertEqual(kind, "no")

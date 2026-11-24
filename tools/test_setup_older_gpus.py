@@ -149,7 +149,7 @@ class Install(unittest.TestCase):
 
     def run_setup(self, ram, found, argv=(), env=None):
         self.toolkit = None
-        code, out, cfg = self.main(list(argv), family="gemma4", model="UD-Q3_K_M", ram=ram, cards=found, env=env)
+        code, out, cfg = self.main(list(argv), family="occamy", model="APEX-Quality", ram=ram, cards=found, env=env)
         return code, out, cfg
 
     def test_a_v100_alone_gets_cuda12(self):

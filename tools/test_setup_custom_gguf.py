@@ -188,8 +188,8 @@ class CustomGgufTests(unittest.TestCase):
         """Verdict kind 'family' → derive size from GGUF_QUANT match or filename token."""
         with tempfile.TemporaryDirectory() as tmp:
             # Find a family that is not in the fingerprints table so verdict returns "family".
-            # Use gemma4 from FAMILIES; file name must end in one of its model sizes.
-            p = Path(tmp) / "model-UD-Q3_K_M.gguf"
+            # Use occamy from FAMILIES; file name must end in one of its model sizes.
+            p = Path(tmp) / "model-APEX-Quality.gguf"
             _write_gguf(p)
 
             fp_dict = {"arch": "some_preview_arch", "tensors": 0, "bytes": 0,
@@ -197,13 +197,13 @@ class CustomGgufTests(unittest.TestCase):
             stub = self._make_stub(fp_dict=fp_dict, kind="family")
 
             # map our arch to a family title in FAMILIES
-            stub.TITLES = {"some_preview_arch": setup.FAMILIES["gemma4"]["title"]}
+            stub.TITLES = {"some_preview_arch": setup.FAMILIES["occamy"]["title"]}
 
             with ExitStack() as stack:
                 stack.enter_context(mock.patch.dict(sys.modules, {"strata_inspect": stub}))
                 family, model, shards = setup.resolve_custom_gguf(str(p))
 
-        # FAMILIES["gemma4"]: its title and its sizes
+        # FAMILIES["occamy"]: its title and its sizes
         self.assertTrue(family in setup.FAMILIES)
         self.assertIn(model, setup.FAMILIES[family]["models"])
         self.assertEqual(shards, [p])
@@ -247,9 +247,9 @@ class CustomGgufTests(unittest.TestCase):
             stub = self._make_stub(fp_dict=first_entry, kind="known")
             with ExitStack() as stack:
                 stack.enter_context(mock.patch.dict(sys.modules, {"strata_inspect": stub}))
-                # --family gemma4 conflicts with the table's first entry → fail before GPU detection
-                self.assertNotEqual(first_key.split("/")[0], "gemma4")
-                argv = ["setup.py", "--custom-gguf", str(p), "--family", "gemma4", "--model", "UD-Q3_K_M"]
+                # --family occamy conflicts with the table's first entry → fail before GPU detection
+                self.assertNotEqual(first_key.split("/")[0], "occamy")
+                argv = ["setup.py", "--custom-gguf", str(p), "--family", "occamy", "--model", "APEX-Quality"]
                 stack.enter_context(mock.patch.object(sys, "argv", argv))
                 try:
                     setup.main()

@@ -21,8 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import setup  # noqa: E402
 
-REPO = "unsloth/gemma-4-26B-A4B-it-GGUF"
-PATH = "MTP/mtp-gemma-4-26B-A4B-it-Q8_0.gguf"
+REPO = "unsloth/Laguna-S-2.1-GGUF"
+PATH = "UD-Q3_K_XL/Laguna-S-2.1-UD-Q3_K_XL-00001-of-00003.gguf"   # a file in a folder
 HF_URL = setup.hf(REPO) + PATH
 
 

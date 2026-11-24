@@ -36,7 +36,7 @@ def quiet(fn, *args):
 
 
 class PolyMain:
-    """setup.main() for --family FAMILY (default gemma4), every outside effect mocked."""
+    """setup.main() for --family FAMILY (default occamy, a family that reads pictures), every outside effect mocked."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -48,7 +48,7 @@ class PolyMain:
     def tearDown(self):
         self.tmp.cleanup()
 
-    def main(self, argv=(), ram=128.0, vram=31.84, model=False, answers=None, win=False, n_gpus=1, family="gemma4",
+    def main(self, argv=(), ram=128.0, vram=31.84, model=False, answers=None, win=False, n_gpus=1, family="occamy",
              cores=None, configs=(), cards=None, env=None, no_start=True, extra=(), avx512=True):
         """answers: None = --yes; else {words of a question: its answer} (Enter for the others); the questions asked
         are kept in self.asked.  model: False or a size's name.  cores: (performance,

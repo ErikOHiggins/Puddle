@@ -62,9 +62,9 @@ class HuggingFacePins(unittest.TestCase):
 
 
     def test_unpinned(self):
-        url = setup.FAMILIES["gemma4"]["hf"] + "x.gguf"
+        url = setup.FAMILIES["occamy"]["hf"] + "x.gguf"
         self.assertEqual(setup.hf_unpinned(url),
-                         "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/x.gguf")
+                         "https://huggingface.co/Accio-Lab/occamy-1.0-APEX-GGUF/resolve/main/x.gguf")
         self.assertEqual(setup.hf_unpinned("https://example.com/a/b"), "https://example.com/a/b")
 
     def test_a_gone_revision_downloads_the_current_file(self):
@@ -80,7 +80,7 @@ class HuggingFacePins(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d, mock.patch.object(setup.urllib.request, "urlopen", urlopen), \
                 mock.patch.dict(setup.os.environ, {"STRATA_SOURCE": "huggingface"}):
             dst = Path(d) / "m.gguf"
-            _, out = quiet(setup.download, setup.FAMILIES["gemma4"]["mmproj_hf"] + "m.gguf", dst)
+            _, out = quiet(setup.download, setup.FAMILIES["occamy"]["mmproj_hf"] + "m.gguf", dst)
             self.assertEqual(dst.read_bytes(), b"model bytes")
         self.assertIn("not at the pinned revision any more", out)
         self.assertEqual([m for m, _ in seen], ["HEAD", "HEAD", "GET"])
@@ -125,7 +125,7 @@ class HuggingFacePins(unittest.TestCase):
 
     def test_hf_endpoint(self):
         # #495: HF_ENDPOINT (a mirror) serves the same pinned revision; a trailing slash and blanks are dropped
-        repo = "unsloth/gemma-4-26B-A4B-it-GGUF"
+        repo = "Accio-Lab/occamy-1.0-APEX-GGUF"
         with mock.patch.dict(setup.os.environ, {}, clear=False):
             setup.os.environ.pop("HF_ENDPOINT", None)
             self.assertEqual(setup.hf(repo), f"https://huggingface.co/{repo}/resolve/{setup.HF_REVISIONS[repo]}/")
@@ -159,11 +159,11 @@ class Step5(unittest.TestCase):
 
     def test_step5_names_the_folder(self):
         with mock.patch.dict(setup.os.environ, {"HF_ENDPOINT": "https://hf-mirror.com"}):
-            code, out, cfg = self.main(family="gemma4", model="UD-Q3_K_M", ram=32.0, vram=8.0)
+            code, out, cfg = self.main(family="occamy", model="APEX-Quality", ram=32.0, vram=15.93)
         self.assertEqual(code, 0, out)
         text = out.replace("\\", "/")
         self.assertRegex(text, r"The model file goes in .*/models")
-        self.assertIn("put it there with its original name (gemma-4-26B-A4B-it-UD-Q3_K_M.gguf)", text)
+        self.assertIn("put it there with its original name (occamy-1.0-APEX-Quality.gguf)", text)
         self.assertIn("--gguf-dir", text)
         self.assertIn("Downloading from https://hf-mirror.com (HF_ENDPOINT)", text)
 

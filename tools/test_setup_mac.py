@@ -79,11 +79,11 @@ class HandOver(unittest.TestCase):
     def test_darwin_hands_the_run_to_setup_mac(self):
         with mock.patch.object(setup.sys, "platform", "darwin"), \
                 mock.patch.object(setup.subprocess, "call", return_value=0) as call, \
-                mock.patch.object(setup.sys, "argv", ["setup.py", "--model", "UD-Q3_K_M", "--yes"]):
+                mock.patch.object(setup.sys, "argv", ["setup.py", "--model", "APEX-Quality", "--yes"]):
             self.assertEqual(setup.main(), 0)
         cmd = call.call_args[0][0]
         self.assertTrue(cmd[1].endswith(str(Path("metal") / "setup_mac.py")))
-        self.assertEqual(cmd[2:], ["--model", "UD-Q3_K_M", "--yes"])
+        self.assertEqual(cmd[2:], ["--model", "APEX-Quality", "--yes"])
 
     def test_other_platforms_never_reach_it(self):
         src = (ROOT / "setup.py").read_text(encoding="utf-8")
@@ -134,7 +134,7 @@ class SmallerModelCatalog(unittest.TestCase):
             for model, spec in entry["models"].items():
                 self.assertEqual(spec["files"][0], setup.model_file(setup.FAMILIES[family], model, 1))
                 self.assertGreater(spec["download_gb"], 0)
-        self.assertIn("UD-Q3_K_M", catalog["gemma4"]["models"])
+        self.assertIn("APEX-Quality", catalog["occamy"]["models"])
 
     def test_listing_needs_no_hardware_or_downloads(self):
         with mock.patch.object(M.S, "say") as say, \
@@ -142,7 +142,7 @@ class SmallerModelCatalog(unittest.TestCase):
                 mock.patch.object(M, "mac_info", side_effect=AssertionError("hardware")), \
                 mock.patch.object(M.S, "download", side_effect=AssertionError("download")):
             self.assertEqual(M.main(["--list-models"]), 0)
-        self.assertTrue(any("gemma4:" in c.args[0] for c in say.call_args_list))
+        self.assertTrue(any("occamy:" in c.args[0] for c in say.call_args_list))
 
 
 class SmallerModelSetup(unittest.TestCase):
@@ -204,30 +204,11 @@ class SmallerModelSetup(unittest.TestCase):
                     self.assertIn("--draft-model", cfg["args"])
                 self.assertNotIn("--pack", cfg["args"])
 
-    def test_no_download_models_also_covers_missing_draft(self):
-        import argparse
-        family = "gemma4"
-        model = next(iter(setup.family_models(family)))
-        spec = setup.family_models(family)[model]
-        self.assertIn("draft_model", spec)
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / setup.model_file(setup.FAMILIES[family], model, 1)).write_bytes(b"fixture")
-            a = argparse.Namespace(family=family, model=model, yes=True, context=8192, vision="no", models_dir=None,
-                                   gguf_dir=tmp, update=False, build=False, no_download_models=True)
-            with mock.patch.object(setup, "pip_install"), mock.patch.object(setup, "get_llama_cpp", return_value=root), \
-                    mock.patch.object(M, "build_engine", return_value=root / "strata-poly"), \
-                    mock.patch.object(setup, "done", return_value=True), mock.patch.object(setup, "check_shards"), \
-                    mock.patch.object(setup, "verify_sha256"), mock.patch.object(setup, "download") as download:
-                with self.assertRaises(SystemExit):
-                    M.setup_poly(a, {"ram_gb":32}, root, [])
-                download.assert_not_called()
-
     def test_missing_local_file_stops_before_build(self):
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(M, "build_engine") as build, \
                 mock.patch.object(setup, "pip_install") as pip, mock.patch.object(setup, "download") as download:
             import argparse
-            a = argparse.Namespace(family="gemma4",model="UD-Q3_K_M",yes=True,context=8192,vision="no",models_dir=None,
+            a = argparse.Namespace(family="occamy",model="APEX-Quality",yes=True,context=8192,vision="no",models_dir=None,
                                    gguf_dir=tmp,update=False)
             with self.assertRaises(SystemExit):
                 M.setup_poly(a,{"ram_gb":32},Path(tmp),[])

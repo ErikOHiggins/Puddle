@@ -9,7 +9,8 @@ added, the other entries unchanged; phase 2, 2026-11-21: Nemotron 3.5 Super adde
 2026-11-22: Super's MTP block runs, its entries without --no-draft, the other entries unchanged; 2026-11-22:
 Super's VRAM figures measured on echo, so 47 GB of RAM beside two 16 GB cards no longer takes it unasked;
 2026-11-22: Bolt's UD-Q5_K_XL added, the other entries unchanged; 2026-11-23: Occamy 1.0 back, with the tag
-occamy10-, the other entries unchanged; 2026-11-23: Bolt's UD-Q4_K_XL added, the other entries unchanged);
+occamy10-, the other entries unchanged; 2026-11-23: Bolt's UD-Q4_K_XL added, the other entries unchanged;
+2026-11-23: the Nemotrons' and Gemma 4's families left setup, their 65 entries with them, the other 50 unchanged);
 record it again only when a default changes on purpose.
 
     python -m unittest tools.test_setup_golden
@@ -112,8 +113,9 @@ class Golden(unittest.TestCase):
         self.assertEqual(sorted(self.golden), sorted(f"{p} {f} {m or 'recommended'}" for p in PROFILES for f, m in MODELS))
         written = [k for k, v in self.golden.items() if v["code"] == 0]
         self.assertGreaterEqual(len(written), 50)
-        for prof in PROFILES:                                        # every PC gets the recommended size
-            self.assertEqual(self.golden[f"{prof} gemma4 recommended"]["code"], 0, prof)
+        for prof in PROFILES:                                        # every PC gets each family's recommended size
+            for family in setup.FAMILIES:
+                self.assertEqual(self.golden[f"{prof} {family} recommended"]["code"], 0, (prof, family))
 
     def test_yes(self):
         for key, ram, found, family, model in self.cases():

@@ -1,5 +1,5 @@
 """Tests for what setup keeps in a model's run config when it runs again (#629), the browser choice (#609) and the
-image-token flag (#625).  Every outside effect is mocked (tools/poly_setup_harness.py), with Gemma 4.
+image-token flag (#625).  Every outside effect is mocked (tools/poly_setup_harness.py), with Occamy.
 
     python -m unittest tools.test_setup_config
 """
@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import setup  # noqa: E402
 from tools.poly_setup_harness import PolyMain  # noqa: E402
 
-CFG = "strata-gemma4-ud-q3_k_m.json"   # the run config setup writes for Gemma 4 UD-Q3_K_M
+CFG = "strata-occamy10-apex-quality.json"   # the run config setup writes for Occamy APEX-Quality
 
 
 def quiet(fn, *args, **kw):
@@ -43,7 +43,7 @@ class CarryOver(unittest.TestCase):
     def run_setup(self, *extra, configs=()):
         self.tearDown()                      # every run in a folder of its own, with only `configs` in it
         self.setUp()
-        code, out, cfg = self.main(list(extra), family="gemma4", model="UD-Q3_K_M", ram=64.0, vram=31.84,
+        code, out, cfg = self.main(list(extra), family="occamy", model="APEX-Quality", ram=64.0, vram=31.84,
                                    configs=configs)
         return code, out, cfg, None
 
@@ -69,7 +69,7 @@ class CarryOver(unittest.TestCase):
         self.assertNotIn("kept from", out)
         self.assertNotIn(".bak", out)
         self.assertEqual(set(cfg) - setup.SETUP_KEYS, {"sampling"})      # its own keys, and the family's sampling
-        self.assertEqual(cfg["sampling"], setup.FAMILIES["gemma4"]["sampling"])
+        self.assertEqual(cfg["sampling"], setup.FAMILIES["occamy"]["sampling"])
 
     def test_setup_keys_are_rewritten(self):
         code, out, first, _ = self.run_setup()
@@ -170,7 +170,7 @@ class NoBrowser(unittest.TestCase):
     def run_setup(self, *extra, configs=()):
         self.tearDown()                      # every run in a folder of its own, with only `configs` in it
         self.setUp()
-        code, out, cfg = self.main(list(extra), family="gemma4", model="UD-Q3_K_M", ram=64.0, vram=31.84,
+        code, out, cfg = self.main(list(extra), family="occamy", model="APEX-Quality", ram=64.0, vram=31.84,
                                    configs=configs)
         return code, out, cfg, None
 
@@ -237,7 +237,7 @@ class VisionTokens(unittest.TestCase):
     def run_setup(self, *extra, configs=()):
         self.tearDown()                      # every run in a folder of its own, with only `configs` in it
         self.setUp()
-        code, out, cfg = self.main(list(extra), family="gemma4", model="UD-Q3_K_M", ram=64.0, vram=31.84,
+        code, out, cfg = self.main(list(extra), family="occamy", model="APEX-Quality", ram=64.0, vram=31.84,
                                    configs=configs)
         return code, out, cfg, None
 

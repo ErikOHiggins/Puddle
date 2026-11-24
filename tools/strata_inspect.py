@@ -29,17 +29,16 @@ import quantscope as qs  # noqa: E402
 FINGERPRINTS = ROOT / "data" / "gguf_fingerprints.json"
 # the architectures strata-poly runs for Puddle's families -> FAMILIES[family]["title"] in setup.py (resolve_custom_gguf
 # maps a "family" verdict back to --family / --model by that title).  Laguna-S and Laguna-XS share one architecture:
-# their layer count tells them apart, as it tells Nemotron 3.5 Super (88 layers and its MTP block) from Bolt (88).
-POLY_ARCHS = {"laguna": {48: "Laguna S 2.1", 40: "Laguna XS 2.1"}, "qwen35moe": "Occamy 1.0 35B-A3B",
-              "nemotron_h_moe": {89: "Nemotron 3.5 Super", 88: "Nemotron 3.5 Bolt"}, "gemma4": "Gemma 4 26B-A4B"}
+# their layer count tells them apart.  The engine also runs nemotron_h_moe and gemma4, whose families left setup on
+# 2026-11-23: a file of theirs is no model setup installs.
+POLY_ARCHS = {"laguna": {48: "Laguna S 2.1", 40: "Laguna XS 2.1"}, "qwen35moe": "Occamy 1.0 35B-A3B"}
 # the architectures only a llama-server family runs ("engine": "llama-server"), whose own file alone setup installs.
-# None now: Bolt's llama-server family (nemotron-bolt-llama) has the file of the strata-poly family above.
+# None: no family of setup runs on llama-server since Bolt's left (2026-11-23).
 LLAMA_ARCHS: dict[str, str] = {}
 
 
 def known_sentence(exact: list) -> str:
-    """The verdict for a file setup installs: each family/size that installs it (Bolt's file: on strata-poly, and on
-    llama-server as nemotron-bolt-llama)."""
+    """The verdict for a file setup installs: each family/size that installs it."""
     first, *more = [k.split("/") for k in exact]
     return (f"this is setup's --family {first[0]} --model {first[1]}"
             + "".join(f" (or --family {f} --model {m})" for f, m in more) + " (give its folder with --gguf-dir)")
@@ -127,7 +126,7 @@ def verdict(fp: dict, table: dict) -> tuple[str, str]:
                       "NVIDIA's own file on llama-server, and sets up no other file of it")
     if fp["arch"] not in POLY_ARCHS:
         return "no", (f"not a model Puddle runs (architecture {fp['arch']!r}): its strata-poly engine runs "
-                      + ", ".join(POLY_ARCHS) + " (Laguna, Occamy, the Nemotrons, Gemma 4)"
+                      + ", ".join(POLY_ARCHS) + " (Laguna, Occamy)"
                       + (", and llama-server " + ", ".join(LLAMA_ARCHS) + " (" + ", ".join(LLAMA_ARCHS.values()) + ")"
                          if LLAMA_ARCHS else ""))
     if not title:

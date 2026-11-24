@@ -1,7 +1,7 @@
-"""Puddle's own families (phase 1c): Laguna-S 2.1, Laguna-XS 2.1 and Occamy 1.0, beside Gemma 4; and Nemotron 3.5
-Bolt on strata-poly, with llama-server (B4) as its opt-in.  Each size's files are pinned (revision, size, SHA-256),
-the run config a --yes install writes has the names, the KV format and the image encoder the live configs on echo
-have, and Laguna-S is the menu's default.
+"""Puddle's families: Laguna-S 2.1, Laguna-XS 2.1 and Occamy 1.0 (the Nemotrons and Gemma 4 left setup on
+2026-11-23).  Each size's files are pinned (revision, size, SHA-256), the run config a --yes install writes has the
+names, the KV format and the image encoder the live configs on echo have, and Laguna-S is the menu's default.  A
+llama-server run config made before is compiled again only when its commit moves.
 Mocked (tools/poly_setup_harness.py): no GPU, no downloads.
 
     python -m unittest tools.test_setup_puddle_families
@@ -15,6 +15,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import json  # noqa: E402
+import tempfile  # noqa: E402
+from unittest import mock  # noqa: E402
+
 import setup  # noqa: E402
 from tools.poly_setup_harness import PolyMain  # noqa: E402
 
@@ -32,10 +36,7 @@ def arg(cfg, flag):
 
 class Catalog(unittest.TestCase):
     def test_the_families_and_their_order(self):
-        self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "occamy", "nemotron-bolt",
-                                                "nemotron-bolt-llama", "nemotron-super", "gemma4"])
-        self.assertEqual(list(setup.family_models("nemotron-bolt")),   # 24GB the default
-                         ["24GB", "UD-Q4_K_XL", "UD-Q5_K_XL"])
+        self.assertEqual(list(setup.FAMILIES), ["laguna-s", "laguna-xs", "occamy"])
         self.assertEqual(list(setup.family_models("laguna-s")), ["UD-Q3_K_XL", "UD-Q4_K_XL", "Q4_K_M"])
         self.assertEqual(list(setup.family_models("laguna-xs")), ["Q4_K_M"])
         self.assertEqual(list(setup.family_models("occamy")), ["APEX-Quality", "APEX-I-Compact", "APEX-Balanced"])
@@ -65,7 +66,7 @@ class Catalog(unittest.TestCase):
         self.assertEqual(setup.POLY_GGUF_ARCHS["laguna-s"], ("laguna",))
         self.assertEqual(setup.POLY_GGUF_ARCHS["laguna-xs"], ("laguna",))
         self.assertEqual(setup.POLY_GGUF_ARCHS["occamy"], ("qwen35moe",))
-        self.assertEqual(setup.POLY_GGUF_ARCHS["gemma4"], ("gemma4",))
+        self.assertEqual(set(setup.POLY_GGUF_ARCHS), set(setup.FAMILIES))
 
     def test_laguna_s_shards_and_poolside_s_own_file(self):
         fam = setup.FAMILIES["laguna-s"]
@@ -82,14 +83,10 @@ class Install(unittest.TestCase):
     setUp, tearDown, main = PolyMain.setUp, PolyMain.tearDown, PolyMain.main
 
     def test_each_family_writes_its_sampling(self):
-        # Laguna: echo's testing (min_p 0.1); Occamy: echo's live config; Gemma 4: Google's model card
+        # Laguna: echo's testing (min_p 0.1); Occamy: echo's live config
         want = {"laguna-s": {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1},
                 "laguna-xs": {"temperature": 1.0, "top_p": 1.0, "top_k": 20, "min_p": 0.1},
-                "occamy": {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 1.5},
-                "nemotron-bolt": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                "nemotron-bolt-llama": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                "nemotron-super": {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05},
-                "gemma4": {"temperature": 1.0, "top_p": 0.95, "top_k": 64}}
+                "occamy": {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 1.5}}
         self.assertEqual({f: fam.get("sampling") for f, fam in setup.FAMILIES.items()}, want)
         for family, sampling in want.items():
             with self.subTest(family=family):
@@ -175,286 +172,37 @@ class Install(unittest.TestCase):
         self.assertEqual(code, 0, out[-3000:])
         self.assertEqual(cfg["model_name"], "occamy-1.0-35b-a3b-apex-i-compact")
 
-    def test_a_small_pc_gets_the_smaller_size(self):
-        code, out, cfg = self.main(family="gemma4", ram=14.0, vram=7.9)   # UD-Q3_K_M wants more
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(cfg["model_name"], "gemma-4-26b-a4b-ud-q2_k_xl")
 
+class LlamaServer(unittest.TestCase):
+    """No family of setup runs on llama-server or asks yes for pictures first since Bolt's left (2026-11-23); a
+    llama-server run config made before is compiled again when LLAMA_SERVER_COMMIT moves, and only then."""
 
-class Bolt(unittest.TestCase):
-    """Nemotron 3.5 Bolt on strata-poly, its default: NVIDIA's own file and image encoder, the plain model name; the
-    llama-server family (nemotron-bolt-llama) beside it on the same files, downloaded once."""
-    setUp, tearDown, main = PolyMain.setUp, PolyMain.tearDown, PolyMain.main
+    def test_no_family_of_llama_server_and_none_that_asks_yes_for_pictures(self):
+        self.assertEqual([f for f, d in setup.FAMILIES.items() if d.get("engine") == "llama-server"], [])
+        self.assertEqual([f for f, d in setup.FAMILIES.items() if d.get("vision_default_yes")], [])
 
-    def two_16(self, *argv, family="nemotron-bolt", **kw):
-        cards = [{"index": i, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120", "driver": "580.97"}
-                 for i in range(2)]
-        return self.main(list(argv), family=family, ram=128.0, cards=cards, **kw)
-
-    def test_the_llama_server_family_has_bolts_files(self):
-        bolt, llama = setup.FAMILIES["nemotron-bolt"], setup.FAMILIES["nemotron-bolt-llama"]
-        for k in ("hf", "file", "shards", "mmproj_hf", "mmproj", "vision_gb", "sha256", "license"):
-            self.assertEqual(llama[k], bolt[k], k)
-        self.assertEqual((bolt["engine"], bolt["args"], llama["engine"]), ("poly", ["--no-draft"], "llama-server"))
-        self.assertEqual(setup.POLY_GGUF_ARCHS["nemotron-bolt"], ("nemotron_h_moe",))
-        # llama-server keeps every layer on the cards: Bolt's 24GB file alone (UD-Q5_K_XL is 59 GB)
-        self.assertEqual(list(llama["models"]), ["24GB"])
-        # the llama-server family's size is Bolt's: its folder; a size of Bolt's own (Unsloth's) has its own
-        self.assertEqual(setup.files_tag(llama, "nemotron-llama-bolt-24GB", "24GB"), "nemotron-bolt-24GB")
-        self.assertEqual(setup.files_tag(bolt, "nemotron-bolt-UD-Q4_K_XL", "UD-Q4_K_XL"), "nemotron-bolt-UD-Q4_K_XL")
-
-    def test_bolt_runs_on_strata_poly(self):
-        code, out, cfg = self.two_16("--vision", "gpu")             # pictures are asked for, as Super's are
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(Path(cfg["exe"]).name, setup.POLY_EXE)
-        self.assertNotEqual(cfg.get("engine"), "llama-server")
-        self.assertEqual(cfg["model_name"], "nemotron-3.5-bolt-24gb")
-        self.assertIn("--no-draft", cfg["args"])
-        model = Path(arg(cfg, "--model"))
-        self.assertEqual((model.parent.name, model.name),
-                         ("nemotron-bolt-24GB", "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf"))
-        self.assertEqual(Path(cfg["vision"]["mmproj"]).name, setup.FAMILIES["nemotron-bolt"]["mmproj"])
-        self.assertFalse(cfg["vision"].get("max_tokens"))           # the encoder file's own limits
-        self.assertNotIn("computed on the CPU", out)                # every expert fits the two cards
-        pin = "/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF/resolve/e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246/"
-        self.assertEqual(self.downloads, ["https://huggingface.co" + pin + model.name,
-                                          "https://huggingface.co" + pin + setup.FAMILIES["nemotron-bolt"]["mmproj"]])
-        self.assertEqual(setup.choices_from_config(next(self.t.glob("strata-nemotron-bolt-*.json")))["family"],
-                         "nemotron-bolt")
-
-    def test_unsloth_s_q5_comes_from_its_repository_with_bolt_s_encoder(self):
-        # UD-Q5_K_XL: Unsloth's repository at its pinned revision, a folder of its own, and NVIDIA's image encoder:
-        # downloaded into that folder when no other size has it, the 24GB size's when that is there
-        pin = "https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF/resolve/" \
-              "34841e360524d421c564cc3ed247aa04a865473b/UD-Q5_K_XL/"
-        names = [f"NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q5_K_XL-0000{i}-of-00003.gguf" for i in (1, 2, 3)]
-        encoder = "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF/resolve/" \
-                  "e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246/" + setup.FAMILIES["nemotron-bolt"]["mmproj"]
-        code, out, cfg = self.two_16("--vision", "gpu", model="UD-Q5_K_XL")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(self.downloads, [pin + n for n in names] + [encoder])
-        model = Path(arg(cfg, "--model"))
-        self.assertEqual((model.parent.parent.name, model.parent.name, model.name),
-                         ("nemotron-bolt-UD-Q5_K_XL", "UD-Q5_K_XL", names[0]))
-        self.assertEqual(Path(cfg["vision"]["mmproj"]).parent.name, "nemotron-bolt-UD-Q5_K_XL")
-        self.assertEqual(cfg["model_name"], "nemotron-3.5-bolt-ud-q5_k_xl")
-        self.assertIn("computed on the CPU", out)                   # most of its experts stay in RAM
-
-        # the 24GB size and its encoder first: the Q5 size takes that encoder and downloads none
-        for f in self.t.glob("models/nemotron-bolt-UD-Q5_K_XL/mmproj*"):
-            f.unlink()
-        code, out, _ = self.two_16("--vision", "gpu")
-        self.assertEqual(code, 0, out[-3000:])
-        self.downloads.clear()
-        code, out, cfg = self.two_16("--vision", "gpu", model="UD-Q5_K_XL")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(self.downloads, [])
-        self.assertEqual(Path(cfg["vision"]["mmproj"]).parent.name, "nemotron-bolt-24GB")
-        # without pictures, as measured on echo's two cards at 32K: 15.5 GiB of experts (16.6 GB)
-        code, out, _ = self.two_16("--vision", "no", model="UD-Q5_K_XL")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertIn("about 17 of", out)
-
-    def test_unsloth_s_q4_comes_from_its_repository_with_bolt_s_encoder(self):
-        # UD-Q4_K_XL, as UD-Q5_K_XL: Unsloth's repository at its pinned revision, a folder of its own, and NVIDIA's
-        # image encoder, the 24GB size's when that is there
-        pin = "https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF/resolve/" \
-              "34841e360524d421c564cc3ed247aa04a865473b/UD-Q4_K_XL/"
-        names = [f"NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-0000{i}-of-00003.gguf" for i in (1, 2, 3)]
-        encoder = "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF/resolve/" \
-                  "e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246/" + setup.FAMILIES["nemotron-bolt"]["mmproj"]
-        code, out, cfg = self.two_16("--vision", "gpu", model="UD-Q4_K_XL")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(self.downloads, [pin + n for n in names] + [encoder])
-        model = Path(arg(cfg, "--model"))
-        self.assertEqual((model.parent.parent.name, model.parent.name, model.name),
-                         ("nemotron-bolt-UD-Q4_K_XL", "UD-Q4_K_XL", names[0]))
-        self.assertEqual(cfg["model_name"], "nemotron-3.5-bolt-ud-q4_k_xl")
-        for f in self.t.glob("models/nemotron-bolt-UD-Q4_K_XL/mmproj*"):
-            f.unlink()
-        code, out, _ = self.two_16("--vision", "gpu")
-        self.assertEqual(code, 0, out[-3000:])
-        self.downloads.clear()
-        code, out, cfg = self.two_16("--vision", "gpu", model="UD-Q4_K_XL")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(self.downloads, [])
-        self.assertEqual(Path(cfg["vision"]["mmproj"]).parent.name, "nemotron-bolt-24GB")
-
-    def test_pictures_are_on_unless_asked_off(self):
-        code, out, cfg = self.two_16()                              # --yes: the question's default, yes for Bolt
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(Path(cfg["vision"]["mmproj"]).name, setup.FAMILIES["nemotron-bolt"]["mmproj"])
-        self.tearDown()
-        self.setUp()
-        code, out, cfg = self.two_16("--vision", "no")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertNotIn("vision", cfg)
-        self.assertEqual(len(self.downloads), 1)                     # the model alone
-
-    def test_other_families_still_ask_no_first(self):
-        self.assertEqual([f for f, d in setup.FAMILIES.items() if d.get("vision_default_yes")], ["nemotron-bolt"])
-
-    def test_one_card_says_part_runs_on_the_cpu(self):
-        cards = [{"index": 0, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120",
-                  "driver": "580.97"}]
-        code, out, cfg = self.main(family="nemotron-bolt", ram=128.0, cards=cards)
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertIn("computed on the CPU", out)
-
-    def test_the_llama_server_family_uses_the_same_download(self):
-        code, out, cfg = self.two_16("--vision", "gpu")             # the model and its image encoder
-        self.assertEqual(code, 0, out[-3000:])
-        first = list(self.downloads)
-        code, out, cfg = self.two_16(family="nemotron-bolt-llama")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(self.downloads, first)                   # nothing downloaded again
-        configs = sorted(x.name for x in self.t.glob("strata-nemotron-*.json"))
-        self.assertEqual(configs, ["strata-nemotron-bolt-24gb.json", "strata-nemotron-llama-bolt-24gb.json"])
-
-    def test_an_earlier_llama_server_config_of_bolt_becomes_strata_polys(self):
-        # Bolt ran on llama-server under the plain name before: setup run again writes strata-poly's config there,
-        # keeps the user's keys and the old file (.bak), and none of llama-server's settings
-        old = {"engine": "llama-server", "exe": "/x/engine-llama/llama-server", "args": ["--ctx-size", "168000"],
-               "model_name": "nemotron-3.5-bolt-24gb", "port": 8080, "keepalive_events": True}
-        code, out, cfg = self.two_16(configs=(("strata-nemotron-bolt-24gb.json", old),))
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(Path(cfg["exe"]).name, setup.POLY_EXE)
-        self.assertNotEqual(cfg.get("engine"), "llama-server")
-        self.assertNotIn("--ctx-size", cfg["args"])
-        self.assertTrue(cfg["keepalive_events"])
-        self.assertTrue((self.t / "strata-nemotron-bolt-24gb.json.bak").is_file())
-
-    def test_super_runs_its_mtp_block(self):
-        # Super's MTP block runs since 2026-11-22: setup run again over a config of before drops --no-draft, keeps
-        # the user's keys and the old file (.bak), and names the option it did not carry over
-        old = {"exe": "/x/engine-poly/strata-poly", "args": ["--model", "/x/m.gguf", "--no-draft"],
-               "model_name": "nemotron-3.5-super-ud-q3_k_xl", "port": 8080, "keepalive_events": True}
-        code, out, cfg = self.two_16(family="nemotron-super",
-                                     configs=(("strata-nemotron-super-ud-q3_k_xl.json", old),))
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertNotIn("--no-draft", cfg["args"])
-        self.assertTrue(cfg["keepalive_events"])
-        self.assertTrue((self.t / "strata-nemotron-super-ud-q3_k_xl.json.bak").is_file())
-        self.assertIn("engine options it had that this one has not (setup chooses those): --no-draft", out)
-        self.assertNotIn("--no-draft", setup.FAMILIES["nemotron-super"].get("args", []))
-
-    def test_super_s_experts_in_vram_are_echo_s(self):
-        # echo, 2026-11-22, at a 32K context with the MTP block: 6.0 GiB of experts on one RTX 5060 Ti 16 GB (6.4 GB),
-        # 16.3 GiB on both (17.5 GB); setup's estimate with Super's vram_beside_gb and vram_card_gb says the same
-        code, out, cfg = self.two_16(family="nemotron-super")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertIn("about 17 of", out)
-        one = [{"index": 0, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120", "driver": "580.97"}]
-        code, out, cfg = self.main(family="nemotron-super", ram=128.0, cards=one)
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertIn("about 6 of", out)
-
-
-class BoltOnLlamaServer(unittest.TestCase):
-    """Nemotron 3.5 Bolt on llama-server (nemotron-bolt-llama, opt-in): llama-server compiled here for NVIDIA, NVIDIA's
-    own file and image encoder from the strata-poly family's folder, echo's args."""
-    setUp, tearDown, main = PolyMain.setUp, PolyMain.tearDown, PolyMain.main
-
-    def two_16(self, *argv, **kw):
-        cards = [{"index": i, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120", "driver": "580.97"}
-                 for i in range(2)]
-        return self.main(list(argv), family="nemotron-bolt-llama", ram=128.0, cards=cards, **kw)
-
-    def test_echos_cards_get_echos_command(self):
-        code, out, cfg = self.two_16()
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(cfg["engine"], "llama-server")
-        self.assertEqual(Path(cfg["exe"]).parts[-2:], (setup.ENGINE_LLAMA_DIR, setup.LLAMA_SERVER_EXE))
-        model, mmproj = Path(arg(cfg, "--model")), Path(arg(cfg, "--mmproj"))
-        self.assertEqual(model.name, "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf")
-        self.assertEqual(model.parent.name, "nemotron-bolt-24GB")   # the strata-poly family's folder
-        self.assertEqual(mmproj.name, "mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf")
-        self.assertEqual(cfg["args"][4:], ["--ctx-size", "168000", "--parallel", "1", "--flash-attn", "on",
-                                           "--cache-type-k", "q8_0", "--cache-type-v", "q8_0", "--batch-size", "2048",
-                                           "--ubatch-size", "2048", "--load-mode", "none", "--n-gpu-layers", "all",
-                                           "--tensor-split", "1,1"])
-        self.assertEqual((cfg["gpu"], cfg["model_name"], cfg["display_name"]),
-                         ([0, 1], "nemotron-3.5-bolt-llama-24gb", "Nemotron 3.5 Bolt (llama-server) 24GB"))
-        self.assertEqual(cfg["sampling"], {"temperature": 1.0, "top_p": 0.95, "top_k": 40, "min_p": 0.05})
-        self.assertNotIn("vision", cfg)                  # llama-server reads pictures with its --mmproj
-        self.assertEqual(self.built, [[120]])
-        pin = "/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF/resolve/e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246/"
-        self.assertEqual(self.downloads, ["https://huggingface.co" + pin + model.name,
-                                          "https://huggingface.co" + pin + mmproj.name])
-        self.assertEqual([v[0] for v in self.verified], [model.name, mmproj.name])
-        self.assertTrue(any("strata_tokenizer.py" in " ".join(r) for r in self.runs), self.runs)
-        self.assertIn("OpenMDW-1.1", out)
-        from serve import server                         # the server takes its args
-        self.assertIsNone(server.llama_server_args_problem(cfg["args"]))
-
-    def test_other_cards_let_llama_server_fit_the_context(self):
-        code, out, cfg = self.main(family="nemotron-bolt-llama", ram=64.0, vram=31.84)      # one RTX 5090
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertNotIn("--ctx-size", cfg["args"])
-        self.assertNotIn("--tensor-split", cfg["args"])
-        self.assertIn("chosen by llama-server each time it loads", out)
-        self.tearDown()
-        self.setUp()
-        code, out, cfg = self.two_16("--context", "65536")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(arg(cfg, "--ctx-size"), "65536")
-
-    def test_too_little_vram_is_refused(self):
-        code, out, cfg = self.main(family="nemotron-bolt-llama", ram=128.0, vram=23.99)     # one 24 GB card
-        self.assertNotEqual(code, 0)
-        self.assertIn("30 GB of VRAM or more", out)
-        self.assertIsNone(cfg)
-        self.tearDown()
-        self.setUp()
-        code, out, cfg = self.main(["--model", "24GB"], family="nemotron-bolt-llama", ram=128.0, vram=15.93)
-        self.assertNotEqual(code, 0)                     # --model and --yes are no way round it
-        self.assertIn("30 GB of VRAM or more", out)
-
-    def test_images_off_leaves_the_encoder_out(self):
-        code, out, cfg = self.two_16("--vision", "no")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertNotIn("--mmproj", cfg["args"])
-        self.assertEqual(len(self.downloads), 1)
-
-    def test_files_you_have_are_used_where_they_are(self):
-        own = self.t / "own"
-        own.mkdir()
-        for name in setup.FAMILIES["nemotron-bolt"]["sha256"]:
-            (own / name).write_bytes(b"")
-        code, out, cfg = self.two_16("--gguf-dir", str(own))
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertEqual(self.downloads, [])
-        self.assertEqual(Path(arg(cfg, "--model")).parent, own)
-
-    def test_the_check_says_it_by_the_cards_together(self):
-        code, out, _ = self.two_16("--check")
-        self.assertEqual(code, 0, out[-3000:])
-        self.assertIn("Nemotron 3.5 Bolt (llama-server) 24GB: EXPERIMENTAL, fits: 32 GB of VRAM on the chosen cards",
-                      out)
-
-    def test_a_later_start_compiles_it_again_only_when_the_commit_moved(self):
-        import json
-        from unittest import mock
-        code, out, cfg = self.two_16()
-        self.assertEqual(code, 0, out[-3000:])
-        path = next(self.t.glob("strata-nemotron-llama-bolt-*.json"))
-        eng = Path(cfg["exe"]).parent
-        (eng / setup.LLAMA_SERVER_EXE).write_bytes(b"")
-        built = []
-        cards = [{"index": i, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120",
-                  "driver": "580.97"} for i in range(2)]
-        with mock.patch.object(setup, "gpus", lambda: cards), \
-                mock.patch.object(setup, "build_llama_server", lambda g, y, t=13: built.append(g["archs"]) or eng):
-            (eng / "BUILD.json").write_text(json.dumps({"commit": setup.LLAMA_SERVER_COMMIT, "archs": [120],
-                                                        "cuda_dirs": ["/c"]}))
-            setup.update_llama_server(cfg, cfg_path=path)
-            self.assertEqual(built, [])
-            (eng / "BUILD.json").write_text(json.dumps({"commit": "0" * 40, "archs": [120], "cuda_dirs": ["/c"]}))
-            setup.update_llama_server(cfg, cfg_path=path)
-            self.assertEqual(built, [[120]])
-        ch = setup.choices_from_config(path)
-        self.assertEqual((ch["family"], ch["model"], ch["context"], ch["vision"]),
-                         ("nemotron-bolt-llama", "24GB", 168000, "gpu"))
+    def test_an_earlier_config_is_compiled_again_only_when_the_commit_moved(self):
+        with tempfile.TemporaryDirectory() as d:
+            eng = Path(d) / setup.ENGINE_LLAMA_DIR
+            eng.mkdir()
+            (eng / setup.LLAMA_SERVER_EXE).write_bytes(b"")
+            cfg = {"engine": "llama-server", "exe": str(eng / setup.LLAMA_SERVER_EXE), "args": ["--model", "m.gguf"],
+                   "gpu": [0, 1], "lib_dirs": ["/c"]}
+            path = Path(d) / "strata-nemotron-llama-bolt-24gb.json"
+            path.write_text(json.dumps(cfg), encoding="utf-8")
+            cards = [{"index": i, "name": "NVIDIA GeForce RTX 5060 Ti", "vram_gb": 15.93, "arch": "120",
+                      "driver": "580.97"} for i in range(2)]
+            built = []
+            with mock.patch.object(setup, "gpus", lambda: cards), \
+                    mock.patch.object(setup, "build_llama_server", lambda g, y, t=13: built.append(g["archs"]) or eng):
+                (eng / "BUILD.json").write_text(json.dumps({"commit": setup.LLAMA_SERVER_COMMIT, "archs": [120],
+                                                            "cuda_dirs": ["/c"]}))
+                setup.update_llama_server(cfg, cfg_path=path)
+                self.assertEqual(built, [])
+                (eng / "BUILD.json").write_text(json.dumps({"commit": "0" * 40, "archs": [120], "cuda_dirs": ["/c"]}))
+                setup.update_llama_server(cfg, cfg_path=path)
+                self.assertEqual(built, [[120]])
+            self.assertEqual(setup.choices_from_config(path)["family"], None)   # no family of setup's any more
 
 
 if __name__ == "__main__":
