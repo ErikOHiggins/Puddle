@@ -1716,6 +1716,12 @@ std::unique_ptr<Engine> Engine::open(const Options& o) {
         prev = at;
     }
     ck(cudaSetDevice(0), "cudaSetDevice");
+    int moe_all = 0;   // STRATA_SWAP_RATE is the whole model's: each card's engine takes its MoE layers' share
+    for (const Engine* e = first.get(); e; e = e->next_.get()) moe_all += e->n_moe_;
+    for (Engine* e = first.get(); e && moe_all > 0; e = e->next_.get()) {
+        e->swap_share_ = (double) e->n_moe_ / (double) moe_all;
+        e->swap_credit_ = e->swap_rate_ * e->swap_share_ * e->swap_window_;
+    }
     int k = 0;
     for (const Engine* e = first.get(); e; e = e->next_.get(), ++k)
         std::fprintf(stderr, "strata-poly: layers %d to %d on card %d: %d of %d routed experts in VRAM (%.1f GiB)\n",
@@ -2488,8 +2494,11 @@ void Engine::follow(int written) {
         n_free += s.at.load() == Swap::kFree;
     }
     if (written <= 0) return;
-    const float keep = std::exp2(-(float) written / (float) kSwapHalf);
+    const float keep = std::exp2(-(float) written / (float) swap_half_);
     for (float& r : recent_) r *= keep;
+    if (swap_rate_ > 0)   // STRATA_SWAP_RATE: each written token refills the bucket by this card's share
+        swap_credit_ = std::min(swap_rate_ * swap_share_ * swap_window_,
+                                swap_credit_ + swap_rate_ * swap_share_ * (double) written);
     const auto from_pool = [&](Swap& s) {   // the slot follow_loop() copies s from, held until s arrives
         s.from = -1;
         if (!pool_) return;
@@ -2516,7 +2525,9 @@ void Engine::follow(int written) {
         asked = true;
         --n_free;
     }
-    if (n_free == 0) {
+    // the trades this call may ask for: the free uploads, and under STRATA_SWAP_RATE what the bucket holds
+    const int trades = swap_rate_ > 0 ? std::min(n_free, (int) swap_credit_) : n_free;
+    if (trades <= 0) {
         if (asked) {
             { std::lock_guard<std::mutex> l(swap_m_); }
             swap_cv_.notify_one();
@@ -2527,7 +2538,7 @@ void Engine::follow(int written) {
     // One pass over the experts lists, for each slot size, the ones that may come in, the most used first, and
     // the cached ones that may go, the least used first: as many of each as uploads are free, which is all the
     // pairs below can take.  A pass for every upload was 0.6 ms of a window of GLM 5.3 Flash's.
-    const size_t most = (size_t) n_free;
+    const size_t most = (size_t) trades;
     in_.assign((size_t) n_trade_ * most, Pick{});
     out_.assign((size_t) n_trade_ * most, Pick{});
     // p to its place in a list, whose last one drops out; equals stay in the order they came
@@ -2553,21 +2564,21 @@ void Engine::follow(int written) {
             const float r = recent_[i];
             const int64_t p = prior_.empty() ? 0 : prior_[i];
             if (L.slot[(size_t) e]) put(out, {il, e, r, p}, less);
-            else if (r >= kSwapMin && !coming_[i]) put(in, {il, e, r, p}, more);
+            else if (r >= swap_min_ && !coming_[i]) put(in, {il, e, r, p}, more);
         }
     }
 
     // An upload goes to the size whose next pair gains most.  A cached expert that has given its slot is no
     // candidate to come in: it was used no more than the cached ones left.
     trade_at_.assign((size_t) n_trade_, 0);
-    for (; n_free > 0; --n_free) {
+    for (int left = trades; left > 0; --left) {
         int best = -1;
         float gain = 0.f;
         for (int c = 0; c < n_trade_; ++c) {
             const size_t k = (size_t) c * most + trade_at_[(size_t) c];
             const Pick& in = in_[k];
             const Pick& out = out_[k];
-            if (in.il < 0 || out.il < 0 || in.recent < 2.f * out.recent + kSwapMin) continue;
+            if (in.il < 0 || out.il < 0 || in.recent < 2.f * out.recent + swap_min_) continue;
             if (best < 0 || in.recent - out.recent > gain) {
                 best = c;
                 gain = in.recent - out.recent;
@@ -2577,6 +2588,7 @@ void Engine::follow(int written) {
 
         const size_t k = (size_t) best * most + trade_at_[(size_t) best]++;
         const Pick in = in_[k], out = out_[k];
+        if (swap_rate_ > 0) swap_credit_ -= 1.0;
         Swap* s = nullptr;
         for (int j = 0; j < n_swap_ && !s; ++j)
             if (swap_[(size_t) j].at.load() == Swap::kFree) s = &swap_[(size_t) j];
@@ -2702,6 +2714,34 @@ void Engine::load(const Options& o) {
     // CPU instead (the cache holds it, but the split is the first token's).  What it buys: greedy answers that
     // repeat bit for bit, which is what a test, a benchmark of quality or a comparison with another engine needs.
     freeze_experts_ = freeze_experts_asked_ = std::getenv("STRATA_FREEZE_EXPERTS") != nullptr;
+    // follow()'s pace, opt-in (engine.hpp).  A value outside its range is refused; a rate of 0 would read as none.
+    const auto pace = [](const char* name, const char* what, bool zero_ok, double low, double& to) {
+        const char* v = std::getenv(name);
+        if (!v || !*v) return false;
+        char* end = nullptr;
+        const double x = std::strtod(v, &end);
+        if (end == v || *end || !(zero_ok ? x >= low : x > low) || !(x <= 1e6))
+            throw std::runtime_error(std::string(name) + " must be " + what + ", it is \"" + v + "\"");
+        to = x;
+        return true;
+    };
+    double swap_min = kSwapMin, swap_half = kSwapHalf;
+    const bool paced = pace("STRATA_SWAP_MIN", "a number of 0 or more", true, 0.0, swap_min) |
+                       pace("STRATA_SWAP_HALF", "a number of 1 or more", true, 1.0, swap_half) |
+                       pace("STRATA_SWAP_RATE", "a number above 0", false, 0.0, swap_rate_) |
+                       pace("STRATA_SWAP_WINDOW", "a number of 1 or more", true, 1.0, swap_window_);
+    swap_min_ = (float) swap_min;
+    swap_half_ = (int) swap_half;
+    swap_credit_ = swap_rate_ * swap_share_ * swap_window_;
+    if (paced && lo_ == 0) {
+        if (swap_rate_ > 0)
+            std::fprintf(stderr, "strata-poly: the expert cache follows the answer from %g recent uses, halved every "
+                                 "%d written tokens, at most %g swaps a written token over %g (STRATA_SWAP_*)\n",
+                         swap_min_, swap_half_, swap_rate_, swap_window_);
+        else
+            std::fprintf(stderr, "strata-poly: the expert cache follows the answer from %g recent uses, halved every "
+                                 "%d written tokens (STRATA_SWAP_*)\n", swap_min_, swap_half_);
+    }
     if (freeze_experts_)
         std::fprintf(stderr, "strata-poly: the experts' split is frozen for the engine's whole run "
                              "(STRATA_FREEZE_EXPERTS): greedy answers are a function of the request alone, "

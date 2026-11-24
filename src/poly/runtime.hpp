@@ -42,6 +42,7 @@ constexpr size_t kTail = 256;
 // follow(): an expert's recent use is the count of its uses, halved every kSwapHalf tokens.  An expert takes a
 // cached one's slot when it was used twice lately and more than twice as much as that one.  Counts this small are
 // noisy, and an upload gets in the way of the work: a slot goes to an expert that will clearly be used more.
+// STRATA_SWAP_MIN and STRATA_SWAP_HALF set the two for a run (Engine::load()), opt-in.
 constexpr float kSwapMin = 2.f;
 constexpr int kSwapHalf = 128;
 // Engine::pick_way(): each way of a window is timed this many times before the faster one is taken.  What a way

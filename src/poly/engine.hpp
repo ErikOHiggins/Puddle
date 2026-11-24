@@ -1016,7 +1016,13 @@ protected:
     std::condition_variable swap_cv_;
     bool swap_quit_ = false;
     std::string swap_error_;         ///< why the thread stopped; follow() throws it
-    std::vector<float> recent_;      ///< per (layer, expert): its uses by written tokens, halved every kSwapHalf
+    std::vector<float> recent_;      ///< per (layer, expert): its uses by written tokens, halved every swap_half_
+    // follow()'s pace, kSwapMin and kSwapHalf unless STRATA_SWAP_MIN / STRATA_SWAP_HALF say otherwise (opt-in).
+    // STRATA_SWAP_RATE: at most that many trades a written token for the whole model, from a bucket of
+    // STRATA_SWAP_WINDOW tokens' worth that each written token refills; this card's share goes by its MoE layers.
+    float swap_min_ = 2.f;   // load() sets both from runtime.hpp's kSwapMin and kSwapHalf
+    int swap_half_ = 128;
+    double swap_rate_ = 0, swap_window_ = 64, swap_share_ = 1, swap_credit_ = 0;
     std::vector<uint8_t> coming_;    ///< per (layer, expert): on its way into the cache
     std::vector<Pick> in_, out_;     ///< per trade number: the experts to bring in, and the ones to give up
     std::vector<size_t> trade_at_;   ///< per trade number: how many of its pairs follow() has taken
